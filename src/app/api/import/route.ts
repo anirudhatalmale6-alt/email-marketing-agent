@@ -51,6 +51,12 @@ export async function POST(request: NextRequest) {
       return ''
     }
 
+    // Detect if this is an ensun export (has "Name", "URI", "Headquarter" columns)
+    const firstRow = rows[0]
+    const columnKeys = Object.keys(firstRow)
+    const isEnsunFormat = columnKeys.some(k => k === 'Name') &&
+      columnKeys.some(k => k === 'URI' || k === 'Headquarter')
+
     let imported = 0
     let skipped = 0
     let failed = 0
@@ -58,7 +64,104 @@ export async function POST(request: NextRequest) {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
-      const email = findColumn(row, ['email', 'emailaddress', 'email_address', 'e-mail'])
+
+      if (isEnsunFormat) {
+        // ensun company export format
+        const companyName = findColumn(row, ['name'])
+        const uri = findColumn(row, ['uri'])
+        const headquarter = findColumn(row, ['headquarter'])
+        const emails = findColumn(row, ['emails'])
+        const phone = findColumn(row, ['phone'])
+        const linkedin = findColumn(row, ['linkedin'])
+        const description = findColumn(row, ['description'])
+        const size = findColumn(row, ['size'])
+        const specializedAreas = findColumn(row, ['specializedareas', 'specialized areas'])
+        const industry = findColumn(row, ['workingindustry', 'working industry'])
+
+        if (!companyName) { skipped++; continue }
+
+        // Extract city/country from headquarter (format: "City, Province, Country")
+        const hqParts = headquarter.split(',').map(s => s.trim())
+        const city = hqParts[0] || ''
+        const country = hqParts[hqParts.length - 1] || ''
+
+        // Use ensun email if available, otherwise generate from website domain
+        let email = ''
+        if (emails) {
+          email = emails.split(',')[0].trim()
+        } else if (uri) {
+          try {
+            const domain = new URL(uri.startsWith('http') ? uri : `https://${uri}`).hostname.replace('www.', '')
+            email = `info@${domain}`
+          } catch {
+            email = `${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}@placeholder.ensun`
+          }
+        } else {
+          email = `${companyName.toLowerCase().replace(/[^a-z0-9]/g, '')}@placeholder.ensun`
+        }
+
+        try {
+          const existing = await prisma.lead.findUnique({ where: { email } })
+          if (existing) {
+            if (parsedTagIds.length > 0) {
+              for (const tagId of parsedTagIds) {
+                await prisma.leadTag.upsert({
+                  where: { leadId_tagId: { leadId: existing.id, tagId } },
+                  update: {},
+                  create: { leadId: existing.id, tagId },
+                })
+              }
+            }
+            skipped++; continue
+          }
+
+          const lead = await prisma.lead.create({
+            data: {
+              email,
+              firstName: companyName,
+              lastName: '',
+              company: companyName,
+              jobTitle: size ? `Company (${size} employees)` : 'Company',
+              phone: phone || null,
+              country: country || null,
+              city: city || null,
+              website: uri || null,
+              source: 'ensun',
+              verified: false,
+              status: 'new',
+            },
+          })
+
+          if (parsedTagIds.length > 0) {
+            await prisma.leadTag.createMany({
+              data: parsedTagIds.map((tagId) => ({ leadId: lead.id, tagId })),
+            })
+          }
+
+          // Auto-create tags from industry/specialized areas
+          if (industry) {
+            const tag = await prisma.tag.upsert({
+              where: { name: industry },
+              update: {},
+              create: { name: industry, color: '#6366F1' },
+            })
+            await prisma.leadTag.upsert({
+              where: { leadId_tagId: { leadId: lead.id, tagId: tag.id } },
+              update: {},
+              create: { leadId: lead.id, tagId: tag.id },
+            })
+          }
+
+          imported++
+        } catch (err) {
+          errors.push(`Row ${i + 2}: ${err instanceof Error ? err.message : 'Unknown error'}`)
+          failed++
+        }
+        continue
+      }
+
+      // Standard lead import format (with email field)
+      const email = findColumn(row, ['email', 'emailaddress', 'email_address', 'e-mail', 'emails'])
       const firstName = findColumn(row, ['firstname', 'first_name', 'first', 'name', 'givenname'])
       const lastName = findColumn(row, ['lastname', 'last_name', 'last', 'surname', 'familyname'])
 
@@ -67,7 +170,6 @@ export async function POST(request: NextRequest) {
         continue
       }
 
-      // Validate email format
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         errors.push(`Row ${i + 2}: Invalid email "${email}"`)
         failed++
@@ -75,10 +177,8 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        // Check for existing lead
         const existing = await prisma.lead.findUnique({ where: { email } })
         if (existing) {
-          // If tags provided, add them to existing lead
           if (parsedTagIds.length > 0) {
             for (const tagId of parsedTagIds) {
               await prisma.leadTag.upsert({
@@ -102,12 +202,11 @@ export async function POST(request: NextRequest) {
             phone: findColumn(row, ['phone', 'telephone', 'tel', 'phonenumber', 'mobile']) || null,
             country: findColumn(row, ['country', 'nation', 'countryname']) || null,
             city: findColumn(row, ['city', 'town', 'location']) || null,
-            website: findColumn(row, ['website', 'url', 'web', 'homepage']) || null,
+            website: findColumn(row, ['website', 'url', 'web', 'homepage', 'uri']) || null,
             source: findColumn(row, ['source', 'leadsource', 'lead_source']) || 'import',
           },
         })
 
-        // Assign tags if provided
         if (parsedTagIds.length > 0) {
           await prisma.leadTag.createMany({
             data: parsedTagIds.map((tagId) => ({ leadId: lead.id, tagId })),
