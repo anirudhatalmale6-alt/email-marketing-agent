@@ -67,7 +67,8 @@ export async function searchPeople(params: {
     body.q_organization_keyword_tags = [params.industry]
   }
 
-  const res = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
+  // Try mixed_people/search first, fall back to contacts/search
+  let res = await fetch('https://api.apollo.io/api/v1/mixed_people/search', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -79,7 +80,50 @@ export async function searchPeople(params: {
   if (!res.ok) {
     const error = await res.json().catch(() => ({}))
     if (error.error_code === 'API_INACCESSIBLE') {
-      throw new Error('Apollo API endpoint not accessible. Make sure api/v1/mixed_people/search is enabled for your API key.')
+      // Fall back to contacts/search
+      const contactBody: Record<string, unknown> = {
+        page: body.page,
+        per_page: body.per_page,
+      }
+      if (params.jobTitles?.length) contactBody.person_titles = params.jobTitles
+      if (params.companyName) contactBody.q_organization_name = params.companyName
+      if (params.locations?.length) contactBody.contact_locations = params.locations
+      if (params.keywords?.length) contactBody.q_keywords = params.keywords.join(' ')
+
+      res = await fetch('https://api.apollo.io/api/v1/contacts/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Key': apiKey,
+        },
+        body: JSON.stringify(contactBody),
+      })
+
+      if (!res.ok) {
+        const err2 = await res.json().catch(() => ({}))
+        throw new Error(err2.error || `Apollo API error: ${res.status}`)
+      }
+
+      const contactData = await res.json()
+      return {
+        people: (contactData.contacts || []).map((c: Record<string, unknown>) => ({
+          id: c.id,
+          first_name: c.first_name,
+          last_name: c.last_name,
+          name: c.name,
+          title: c.title,
+          email: c.email,
+          linkedin_url: c.linkedin_url,
+          headline: c.headline,
+          organization_name: c.organization_name,
+          city: c.city,
+          state: c.state,
+          country: c.country,
+          phone_numbers: c.phone_numbers,
+          organization: c.organization,
+        })),
+        pagination: contactData.pagination || { page: 1, per_page: 25, total_entries: 0, total_pages: 0 },
+      }
     }
     throw new Error(error.error || `Apollo API error: ${res.status}`)
   }
