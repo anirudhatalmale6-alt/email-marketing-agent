@@ -22,6 +22,8 @@ interface AppSettings {
   openaiApiKey: string;
   apolloApiKey: string;
   zerobounceApiKey: string;
+  gmassApiKey: string;
+  sendingMethod: string;
   baseUrl: string;
   dailySendLimit: number;
 }
@@ -39,6 +41,8 @@ export default function SettingsPage() {
     openaiApiKey: '',
     apolloApiKey: '',
     zerobounceApiKey: '',
+    gmassApiKey: '',
+    sendingMethod: 'gmass',
     baseUrl: '',
     dailySendLimit: 300,
   });
@@ -73,6 +77,8 @@ export default function SettingsPage() {
         openaiApiKey: json.openaiApiKey || '',
         apolloApiKey: json.apolloApiKey || '',
         zerobounceApiKey: json.zerobounceApiKey || '',
+        gmassApiKey: json.gmassApiKey || '',
+        sendingMethod: json.sendingMethod || 'gmass',
         baseUrl: json.baseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
         dailySendLimit: json.dailySendLimit || 300,
       });
@@ -307,12 +313,70 @@ export default function SettingsPage() {
         )}
       </div>
 
+      {/* Sending Method */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-gray-900 mb-1">Email Sending Method</h2>
+        <p className="text-sm text-gray-500 mb-4">Choose how campaigns send emails</p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <button
+            onClick={() => setSettings({ ...settings, sendingMethod: 'gmass' })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              settings.sendingMethod === 'gmass'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                settings.sendingMethod === 'gmass' ? 'border-blue-500' : 'border-gray-300'
+              }`}>
+                {settings.sendingMethod === 'gmass' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+              </div>
+              <span className="font-semibold text-gray-900">GMass</span>
+              <span className="text-xs px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full font-medium">Recommended</span>
+            </div>
+            <p className="text-xs text-gray-500 ml-6">Send through GMass via Gmail. Best deliverability, built-in throttling, and auto follow-ups.</p>
+          </button>
+          <button
+            onClick={() => setSettings({ ...settings, sendingMethod: 'smtp' })}
+            className={`p-4 rounded-lg border-2 text-left transition-all ${
+              settings.sendingMethod === 'smtp'
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                settings.sendingMethod === 'smtp' ? 'border-blue-500' : 'border-gray-300'
+              }`}>
+                {settings.sendingMethod === 'smtp' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+              </div>
+              <span className="font-semibold text-gray-900">Direct SMTP</span>
+            </div>
+            <p className="text-xs text-gray-500 ml-6">Send via your own SMTP server. Configure servers in the section above.</p>
+          </button>
+        </div>
+      </div>
+
       {/* API Keys */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">API Keys</h2>
         <p className="text-sm text-gray-500 mb-4">Configure API keys for lead scraping, verification, and AI features</p>
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">GMass API Key</label>
+            <input
+              type="password"
+              value={settings.gmassApiKey}
+              onChange={(e) => setSettings({ ...settings, gmassApiKey: e.target.value })}
+              placeholder="Enter GMass API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Required for sending campaigns through GMass. Get it from GMass Settings in Gmail.</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Apollo.io API Key</label>
             <input

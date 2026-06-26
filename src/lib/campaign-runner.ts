@@ -1,12 +1,20 @@
 import { prisma } from './prisma'
 import { getSmtpTransport, injectTrackingPixel, wrapLinks, replaceVariables } from './email'
 import { personalizeEmail } from './ai'
+import { runGmassCampaign } from './gmass'
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 export async function runCampaign(campaignId: string) {
+  const sendingMethodSetting = await prisma.setting.findUnique({ where: { key: 'sending_method' } })
+  const sendingMethod = sendingMethodSetting?.value || 'smtp'
+
+  if (sendingMethod === 'gmass') {
+    return runGmassCampaign(campaignId)
+  }
+
   const campaign = await prisma.campaign.findUnique({
     where: { id: campaignId },
     include: { template: true },

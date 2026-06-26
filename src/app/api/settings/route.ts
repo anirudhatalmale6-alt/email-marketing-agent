@@ -5,6 +5,8 @@ const KEY_MAP: Record<string, string> = {
   openaiApiKey: 'openai_api_key',
   apolloApiKey: 'apollo_api_key',
   zerobounceApiKey: 'zerobounce_api_key',
+  gmassApiKey: 'gmass_api_key',
+  sendingMethod: 'sending_method',
   baseUrl: 'app_url',
   dailySendLimit: 'daily_send_limit',
 }
