@@ -1,0 +1,35 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { scrapeHotelLeads, importScrapedLeads } from '@/lib/scraper'
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { country, limit = 50, tagIds = [], action = 'preview' } = body
+
+    if (!country) {
+      return NextResponse.json({ error: 'Country is required' }, { status: 400 })
+    }
+
+    const result = await scrapeHotelLeads(country, limit)
+
+    if (action === 'import' && result.leads.length > 0) {
+      const imported = await importScrapedLeads(result.leads, tagIds)
+      return NextResponse.json({
+        message: `Imported ${imported} leads from ${country}`,
+        imported,
+        total: result.leads.length,
+      })
+    }
+
+    return NextResponse.json({
+      message: result.message,
+      leads: result.leads,
+      total: result.leads.length,
+    })
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Scraping failed' },
+      { status: 500 }
+    )
+  }
+}
