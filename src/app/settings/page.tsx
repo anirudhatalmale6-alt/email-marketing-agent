@@ -20,6 +20,8 @@ interface SmtpConfig {
 
 interface AppSettings {
   openaiApiKey: string;
+  apolloApiKey: string;
+  zerobounceApiKey: string;
   baseUrl: string;
   dailySendLimit: number;
 }
@@ -35,6 +37,8 @@ export default function SettingsPage() {
   // App Settings
   const [settings, setSettings] = useState<AppSettings>({
     openaiApiKey: '',
+    apolloApiKey: '',
+    zerobounceApiKey: '',
     baseUrl: '',
     dailySendLimit: 300,
   });
@@ -67,6 +71,8 @@ export default function SettingsPage() {
       const json = await res.json();
       setSettings({
         openaiApiKey: json.openaiApiKey || '',
+        apolloApiKey: json.apolloApiKey || '',
+        zerobounceApiKey: json.zerobounceApiKey || '',
         baseUrl: json.baseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
         dailySendLimit: json.dailySendLimit || 300,
       });
@@ -304,9 +310,33 @@ export default function SettingsPage() {
       {/* API Keys */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-gray-900 mb-1">API Keys</h2>
-        <p className="text-sm text-gray-500 mb-4">Configure API keys for AI personalization features</p>
+        <p className="text-sm text-gray-500 mb-4">Configure API keys for lead scraping, verification, and AI features</p>
 
         <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Apollo.io API Key</label>
+            <input
+              type="password"
+              value={settings.apolloApiKey}
+              onChange={(e) => setSettings({ ...settings, apolloApiKey: e.target.value })}
+              placeholder="Enter Apollo API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Required for finding contacts and verified emails at target companies</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">ZeroBounce API Key</label>
+            <input
+              type="password"
+              value={settings.zerobounceApiKey}
+              onChange={(e) => setSettings({ ...settings, zerobounceApiKey: e.target.value })}
+              placeholder="Enter ZeroBounce API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Optional - extra email verification layer before sending</p>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
             <div className="flex gap-2">

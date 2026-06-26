@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+const KEY_MAP: Record<string, string> = {
+  openaiApiKey: 'openai_api_key',
+  apolloApiKey: 'apollo_api_key',
+  zerobounceApiKey: 'zerobounce_api_key',
+  baseUrl: 'app_url',
+  dailySendLimit: 'daily_send_limit',
+}
+
+const REVERSE_MAP: Record<string, string> = Object.fromEntries(
+  Object.entries(KEY_MAP).map(([k, v]) => [v, k])
+)
+
+const SENSITIVE_KEYS = ['api_key', 'password', 'secret']
+
+function isSensitive(key: string): boolean {
+  return SENSITIVE_KEYS.some(s => key.includes(s))
+}
+
 export async function GET() {
   try {
     const settings = await prisma.setting.findMany()
-
-    // Convert to key-value object
     const result: Record<string, string> = {}
+
     for (const setting of settings) {
-      // Mask sensitive values
-      if (setting.key.includes('api_key') || setting.key.includes('password') || setting.key.includes('secret')) {
-        result[setting.key] = setting.value ? '••••••••' + setting.value.slice(-4) : ''
-      } else {
-        result[setting.key] = setting.value
-      }
+      const camelKey = REVERSE_MAP[setting.key] || setting.key
+      result[camelKey] = setting.value
     }
 
     return NextResponse.json(result)
@@ -27,38 +40,55 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // Body can be a single {key, value} or an object of key-value pairs
     if (body.key && body.value !== undefined) {
-      // Single setting
       await prisma.setting.upsert({
         where: { key: body.key },
         update: { value: body.value },
         create: { key: body.key, value: body.value },
       })
     } else {
-      // Multiple settings as key-value object
       const entries = Object.entries(body) as [string, string][]
       for (const [key, value] of entries) {
+        const dbKey = KEY_MAP[key] || key
+        if (isSensitive(dbKey) && String(value).startsWith('••••')) continue
         await prisma.setting.upsert({
-          where: { key },
+          where: { key: dbKey },
           update: { value: String(value) },
-          create: { key, value: String(value) },
+          create: { key: dbKey, value: String(value) },
         })
       }
     }
 
-    // Return all settings
     const settings = await prisma.setting.findMany()
     const result: Record<string, string> = {}
     for (const setting of settings) {
-      if (setting.key.includes('api_key') || setting.key.includes('password') || setting.key.includes('secret')) {
-        result[setting.key] = setting.value ? '••••••••' + setting.value.slice(-4) : ''
-      } else {
-        result[setting.key] = setting.value
-      }
+      const camelKey = REVERSE_MAP[setting.key] || setting.key
+      result[camelKey] = setting.value
+    }
+    return NextResponse.json(result)
+  } catch (error) {
+    console.error('Failed to save settings:', error)
+    return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const entries = Object.entries(body) as [string, string][]
+
+    for (const [key, value] of entries) {
+      const dbKey = KEY_MAP[key] || key
+      if (isSensitive(dbKey) && String(value).startsWith('••••')) continue
+      if (String(value) === '') continue
+      await prisma.setting.upsert({
+        where: { key: dbKey },
+        update: { value: String(value) },
+        create: { key: dbKey, value: String(value) },
+      })
     }
 
-    return NextResponse.json(result)
+    return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Failed to save settings:', error)
     return NextResponse.json({ error: 'Failed to save settings' }, { status: 500 })
