@@ -56,27 +56,6 @@ export default function TemplateCard({
           </div>
         )}
 
-        {/* Hover overlay with actions */}
-        <div className="absolute inset-0 flex items-center justify-center gap-3 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-          {onEdit && (
-            <button
-              onClick={() => onEdit(id)}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-lg hover:bg-gray-50 transition-colors"
-            >
-              Edit
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => {
-                if (confirm('Delete this template?')) onDelete(id);
-              }}
-              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white shadow-lg hover:bg-red-600 transition-colors"
-            >
-              Delete
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Info */}
@@ -91,6 +70,26 @@ export default function TemplateCard({
           <span className={`flex-shrink-0 rounded-full px-2 py-0.5 text-xs font-medium capitalize ${categoryColors[category] || categoryColors.general}`}>
             {category}
           </span>
+        </div>
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-100">
+          {onEdit && (
+            <button
+              onClick={() => onEdit(id)}
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            >
+              Edit
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={() => {
+                if (confirm('Delete this template?')) onDelete(id);
+              }}
+              className="rounded-lg border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
     </div>
