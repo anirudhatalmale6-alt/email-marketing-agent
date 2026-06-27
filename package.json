@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && prisma db push --accept-data-loss && next build",
+    "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
     "seed": "npx tsx src/lib/seed.ts",
@@ -12,6 +13,7 @@
     "db:studio": "npx prisma studio"
   },
   "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
     "@prisma/client": "^5.22.0",
     "@types/bcryptjs": "^3.0.0",
     "@types/jsonwebtoken": "^9.0.10",
