@@ -77,7 +77,21 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json(lead)
+    if (body.tagIds !== undefined) {
+      await prisma.leadTag.deleteMany({ where: { leadId: id } })
+      if (body.tagIds.length > 0) {
+        await prisma.leadTag.createMany({
+          data: body.tagIds.map((tagId: string) => ({ leadId: id, tagId })),
+        })
+      }
+    }
+
+    const updated = await prisma.lead.findUnique({
+      where: { id },
+      include: { tags: { include: { tag: true } } },
+    })
+
+    return NextResponse.json(updated)
   } catch (error) {
     console.error('Failed to update lead:', error)
     return NextResponse.json({ error: 'Failed to update lead' }, { status: 500 })
