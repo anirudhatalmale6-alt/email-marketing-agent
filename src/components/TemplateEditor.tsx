@@ -125,8 +125,22 @@ export default function TemplateEditor({
             try {
               setBlocks(JSON.parse(data.jsonLayout));
             } catch {
-              // Fall back to default blocks if JSON parse fails
+              // Fall back to htmlContent parsing
             }
+          } else if (data.htmlContent) {
+            let html = data.htmlContent as string;
+            html = html.replace(new RegExp('<!DOCTYPE[^>]*>', 'i'), '');
+            html = html.replace(new RegExp('</?html[^>]*>', 'gi'), '');
+            html = html.replace(new RegExp('<head[^>]*>[\\s\\S]*?</head>', 'gi'), '');
+            html = html.replace(new RegExp('</?body[^>]*>', 'gi'), '');
+            html = html.replace(new RegExp('<div style="max-width:600px[^"]*">', 'i'), '');
+            html = html.trim();
+            if (html.endsWith('</div>')) html = html.slice(0, -6);
+            setBlocks([{
+              id: 'block-html-1',
+              type: 'text' as const,
+              content: html.trim() || data.htmlContent,
+            }]);
           }
         })
         .catch(console.error);
