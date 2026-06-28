@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
+  '/apollo': 'Apollo Lead Finder',
   '/leads': 'Leads',
   '/templates': 'Templates',
   '/campaigns': 'Campaigns',
