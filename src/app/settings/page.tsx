@@ -21,6 +21,7 @@ interface SmtpConfig {
 interface AppSettings {
   openaiApiKey: string;
   apolloApiKey: string;
+  hunterApiKey: string;
   zerobounceApiKey: string;
   gmassApiKey: string;
   sendingMethod: string;
@@ -40,6 +41,7 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<AppSettings>({
     openaiApiKey: '',
     apolloApiKey: '',
+    hunterApiKey: '',
     zerobounceApiKey: '',
     gmassApiKey: '',
     sendingMethod: 'gmass',
@@ -76,6 +78,7 @@ export default function SettingsPage() {
       setSettings({
         openaiApiKey: json.openaiApiKey || '',
         apolloApiKey: json.apolloApiKey || '',
+        hunterApiKey: json.hunterApiKey || '',
         zerobounceApiKey: json.zerobounceApiKey || '',
         gmassApiKey: json.gmassApiKey || '',
         sendingMethod: json.sendingMethod || 'gmass',
@@ -387,6 +390,18 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
             />
             <p className="mt-1 text-xs text-gray-400">Required for finding contacts and verified emails at target companies</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Hunter.io API Key</label>
+            <input
+              type="password"
+              value={settings.hunterApiKey}
+              onChange={(e) => setSettings({ ...settings, hunterApiKey: e.target.value })}
+              placeholder="Enter Hunter.io API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Required for finding emails by company domain (Ensun import). Free at hunter.io</p>
           </div>
 
           <div>
