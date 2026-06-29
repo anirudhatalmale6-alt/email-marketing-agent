@@ -22,6 +22,7 @@ interface AppSettings {
   openaiApiKey: string;
   apolloApiKey: string;
   hunterApiKey: string;
+  googleMapsApiKey: string;
   zerobounceApiKey: string;
   gmassApiKey: string;
   sendingMethod: string;
@@ -42,6 +43,7 @@ export default function SettingsPage() {
     openaiApiKey: '',
     apolloApiKey: '',
     hunterApiKey: '',
+    googleMapsApiKey: '',
     zerobounceApiKey: '',
     gmassApiKey: '',
     sendingMethod: 'gmass',
@@ -79,6 +81,7 @@ export default function SettingsPage() {
         openaiApiKey: json.openaiApiKey || '',
         apolloApiKey: json.apolloApiKey || '',
         hunterApiKey: json.hunterApiKey || '',
+        googleMapsApiKey: json.googleMapsApiKey || '',
         zerobounceApiKey: json.zerobounceApiKey || '',
         gmassApiKey: json.gmassApiKey || '',
         sendingMethod: json.sendingMethod || 'gmass',
@@ -402,6 +405,18 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
             />
             <p className="mt-1 text-xs text-gray-400">Required for finding emails by company domain (Ensun import). Free at hunter.io</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Google Maps API Key</label>
+            <input
+              type="password"
+              value={settings.googleMapsApiKey}
+              onChange={(e) => setSettings({ ...settings, googleMapsApiKey: e.target.value })}
+              placeholder="Enter Google Maps API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Required for Google Maps lead finder. Enable Places API in Google Cloud Console</p>
           </div>
 
           <div>

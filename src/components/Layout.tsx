@@ -6,6 +6,7 @@ import Sidebar from './Sidebar';
 const pageTitles: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/apollo': 'Apollo Lead Finder',
+  '/apollo/google-maps': 'Google Maps Lead Finder',
   '/apollo/ensun': 'Ensun Company Import',
   '/leads': 'Leads',
   '/templates': 'Templates',
