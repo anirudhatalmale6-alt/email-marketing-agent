@@ -176,8 +176,20 @@ function renderBlockHtml(block: EditorBlock): string {
   }
 }
 
+const FONT_SIZES = [
+  { value: '1', label: '10px' },
+  { value: '2', label: '13px' },
+  { value: '3', label: '16px' },
+  { value: '4', label: '18px' },
+  { value: '5', label: '24px' },
+  { value: '6', label: '32px' },
+  { value: '7', label: '48px' },
+];
+
 function HtmlEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  const colorRef = useRef<HTMLInputElement>(null);
+  const bgColorRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (ref.current) ref.current.innerHTML = value;
@@ -189,26 +201,90 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
   };
 
   const btnClass = 'rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors';
+  const sep = <span className="w-px bg-gray-200 mx-0.5" />;
 
   return (
     <div>
       <div className="flex flex-wrap gap-1 mb-2 p-1.5 bg-gray-50 rounded-lg border border-gray-200">
+        {/* Text style */}
         <button type="button" onClick={() => exec('bold')} className={btnClass} title="Bold"><b>B</b></button>
         <button type="button" onClick={() => exec('italic')} className={btnClass} title="Italic"><i>I</i></button>
         <button type="button" onClick={() => exec('underline')} className={btnClass} title="Underline"><u>U</u></button>
-        <span className="w-px bg-gray-200 mx-0.5" />
-        <button type="button" onClick={() => exec('formatBlock', '<h2>')} className={btnClass} title="Heading">H2</button>
-        <button type="button" onClick={() => exec('formatBlock', '<h3>')} className={btnClass} title="Subheading">H3</button>
+        <button type="button" onClick={() => exec('strikeThrough')} className={btnClass} title="Strikethrough"><s>S</s></button>
+        {sep}
+        {/* Font size */}
+        <select
+          onChange={(e) => { if (e.target.value) exec('fontSize', e.target.value); e.target.value = ''; }}
+          defaultValue=""
+          className="rounded px-1 py-1 text-xs font-medium text-gray-600 bg-transparent hover:bg-gray-200 transition-colors border-none outline-none cursor-pointer"
+          title="Font Size"
+        >
+          <option value="" disabled>Size</option>
+          {FONT_SIZES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+        </select>
+        {sep}
+        {/* Text color */}
+        <div className="relative">
+          <button type="button" onClick={() => colorRef.current?.click()} className={btnClass} title="Text Color">
+            <span style={{ borderBottom: '3px solid #ef4444' }}>A</span>
+          </button>
+          <input ref={colorRef} type="color" className="absolute opacity-0 w-0 h-0" onChange={(e) => exec('foreColor', e.target.value)} />
+        </div>
+        <div className="relative">
+          <button type="button" onClick={() => bgColorRef.current?.click()} className={btnClass} title="Highlight Color">
+            <span className="px-0.5 bg-yellow-200 rounded-sm text-xs">A</span>
+          </button>
+          <input ref={bgColorRef} type="color" defaultValue="#ffff00" className="absolute opacity-0 w-0 h-0" onChange={(e) => exec('hiliteColor', e.target.value)} />
+        </div>
+        {sep}
+        {/* Headings */}
+        <button type="button" onClick={() => exec('formatBlock', '<h1>')} className={btnClass} title="Heading 1">H1</button>
+        <button type="button" onClick={() => exec('formatBlock', '<h2>')} className={btnClass} title="Heading 2">H2</button>
+        <button type="button" onClick={() => exec('formatBlock', '<h3>')} className={btnClass} title="Heading 3">H3</button>
         <button type="button" onClick={() => exec('formatBlock', '<p>')} className={btnClass} title="Paragraph">P</button>
-        <span className="w-px bg-gray-200 mx-0.5" />
-        <button type="button" onClick={() => exec('insertUnorderedList')} className={btnClass} title="Bullet List">List</button>
+        {sep}
+        {/* Alignment */}
+        <button type="button" onClick={() => exec('justifyLeft')} className={btnClass} title="Align Left">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M3 12h12M3 18h16"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('justifyCenter')} className={btnClass} title="Align Center">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M6 12h12M4 18h16"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('justifyRight')} className={btnClass} title="Align Right">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M9 12h12M5 18h16"/></svg>
+        </button>
+        {sep}
+        {/* Lists */}
+        <button type="button" onClick={() => exec('insertUnorderedList')} className={btnClass} title="Bullet List">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M4 6h.01M4 12h.01M4 18h.01M8 6h13M8 12h13M8 18h13"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('insertOrderedList')} className={btnClass} title="Numbered List">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M4 6h.01M4 12h.01M4 18h.01M8 6h13M8 12h13M8 18h13"/><text x="2" y="8" fontSize="7" fill="currentColor" stroke="none">1</text></svg>
+        </button>
+        <button type="button" onClick={() => exec('indent')} className={btnClass} title="Indent">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M9 12h12M9 18h12M3 11l3 1.5L3 14"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('outdent')} className={btnClass} title="Outdent">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M9 12h12M9 18h12M6 11l-3 1.5L6 14"/></svg>
+        </button>
+        {sep}
+        {/* Links & extras */}
+        <button type="button" onClick={() => exec('formatBlock', '<blockquote>')} className={btnClass} title="Quote">
+          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 17h3l2-4V7H5v6h3zm8 0h3l2-4V7h-6v6h3z"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('insertHorizontalRule')} className={btnClass} title="Horizontal Line">&#8213;</button>
         <button type="button" onClick={() => { const u = prompt('Enter URL:'); if (u) exec('createLink', u); }} className={btnClass} title="Insert Link">Link</button>
         <button type="button" onClick={() => exec('unlink')} className={btnClass} title="Remove Link">Unlink</button>
+        {sep}
+        <button type="button" onClick={() => exec('removeFormat')} className={btnClass} title="Clear Formatting">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
       </div>
       <div
         ref={ref}
         contentEditable
         suppressContentEditableWarning
+        onInput={() => { if (ref.current) onChange(ref.current.innerHTML); }}
         onBlur={() => { if (ref.current) onChange(ref.current.innerHTML); }}
         className="min-h-[140px] max-h-[300px] overflow-y-auto p-3 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 leading-relaxed"
       />
@@ -340,6 +416,8 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [activeId, setActiveId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const htmlFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!templateId) return;
@@ -461,6 +539,25 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
     }
   };
 
+  const handleImportHtml = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      let html = ev.target?.result as string;
+      html = html.replace(/<!DOCTYPE[^>]*>/i, '');
+      html = html.replace(/<\/?html[^>]*>/gi, '');
+      html = html.replace(/<head[\s\S]*?<\/head>/gi, '');
+      html = html.replace(/<\/?body[^>]*>/gi, '');
+      html = html.trim();
+      const b: EditorBlock = { id: uid(), type: 'text', data: { html, padding: 0 } };
+      setBlocks([b]);
+      setActiveId(b.id);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   const activeBlock = blocks.find((b) => b.id === activeId) || null;
 
   return (
@@ -481,6 +578,21 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           </select>
         </div>
         <div className="flex items-center gap-2">
+          <input ref={htmlFileRef} type="file" accept=".html,.htm" onChange={handleImportHtml} className="hidden" />
+          <button onClick={() => htmlFileRef.current?.click()}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" title="Import HTML file">
+            <span className="flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+              Import HTML
+            </span>
+          </button>
+          <button onClick={() => setShowPreview(true)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" title="Preview email">
+            <span className="flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+              Preview
+            </span>
+          </button>
           {onCancel && (
             <button onClick={onCancel} className="rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
           )}
@@ -609,6 +721,34 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           )}
         </div>
       </div>
+
+      {/* Preview Modal */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowPreview(false)}>
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Email Preview</h3>
+                {subject && <p className="text-sm text-gray-500 mt-0.5">Subject: {subject}</p>}
+              </div>
+              <button onClick={() => setShowPreview(false)} className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-gray-100">
+              <div className="mx-auto max-w-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <iframe
+                  srcDoc={getFullHtml()}
+                  className="w-full border-0"
+                  style={{ minHeight: '500px', height: '600px' }}
+                  title="Email Preview"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

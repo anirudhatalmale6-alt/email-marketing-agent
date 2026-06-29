@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         templateId: templateId || null,
         segmentTags: Array.isArray(segmentTags) ? JSON.stringify(segmentTags) : segmentTags || null,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
-        dailyLimit: dailyLimit || 300,
+        dailyLimit: dailyLimit || 1000,
         delaySeconds: delaySeconds ?? 30,
         aiPersonalize: aiPersonalize || false,
         followUpEnabled: followUpEnabled || false,

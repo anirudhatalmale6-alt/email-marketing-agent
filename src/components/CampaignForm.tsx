@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import TagBadge from './TagBadge';
 
 interface Tag {
@@ -44,7 +44,7 @@ const defaultForm: CampaignData = {
   templateId: '',
   segmentTags: [],
   scheduledAt: '',
-  dailyLimit: 300,
+  dailyLimit: 1000,
   delaySeconds: 30,
   aiPersonalize: false,
   followUpEnabled: false,
@@ -61,6 +61,8 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [segmentOpen, setSegmentOpen] = useState(false);
+  const segmentRef = useRef<HTMLDivElement>(null);
 
   const fetchDeps = useCallback(async () => {
     try {
@@ -79,6 +81,16 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
     } catch (err) {
       console.error('Failed to fetch dependencies:', err);
     }
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (segmentRef.current && !segmentRef.current.contains(e.target as Node)) {
+        setSegmentOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   useEffect(() => {
@@ -264,23 +276,66 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
               Target Segments <span className="text-red-500">*</span>
             </label>
             <p className="text-xs text-gray-400 mb-2">Select tags to target specific lead segments</p>
-            <div className="flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 p-3 min-h-[44px]">
-              {tags.length === 0 ? (
-                <span className="text-sm text-gray-400">No tags available</span>
-              ) : (
-                tags.map((tag) => {
-                  const isSelected = form.segmentTags.includes(tag.id);
-                  return (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => toggleSegmentTag(tag.id)}
-                      className={`transition-all ${isSelected ? 'ring-2 ring-offset-1 ring-blue-400 scale-105' : 'opacity-50 hover:opacity-80'}`}
-                    >
-                      <TagBadge name={tag.name} color={tag.color} />
-                    </button>
-                  );
-                })
+            <div className="relative" ref={segmentRef}>
+              <button
+                type="button"
+                onClick={() => setSegmentOpen(!segmentOpen)}
+                className={`w-full flex items-center justify-between rounded-lg border ${errors.segmentTags ? 'border-red-300' : 'border-gray-200'} bg-white px-3 py-2.5 text-sm text-left focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition-colors`}
+              >
+                {form.segmentTags.length > 0 ? (
+                  <span className="flex flex-wrap gap-1.5">
+                    {form.segmentTags.map((tagId) => {
+                      const tag = tags.find((t) => t.id === tagId);
+                      return tag ? <TagBadge key={tagId} name={tag.name} color={tag.color} /> : null;
+                    })}
+                  </span>
+                ) : (
+                  <span className="text-gray-400">Select target segments...</span>
+                )}
+                <svg className={`h-4 w-4 text-gray-400 flex-shrink-0 ml-2 transition-transform ${segmentOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {segmentOpen && (
+                <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-60 overflow-y-auto">
+                  {tags.length === 0 ? (
+                    <div className="px-3 py-4 text-sm text-gray-400 text-center">No tags available. Create tags in the Leads page first.</div>
+                  ) : (
+                    <>
+                      <div className="px-3 py-2 border-b border-gray-100">
+                        <button type="button" onClick={() => {
+                          if (form.segmentTags.length === tags.length) {
+                            handleChange('segmentTags', []);
+                          } else {
+                            handleChange('segmentTags', tags.map((t) => t.id));
+                          }
+                        }} className="text-xs font-medium text-blue-600 hover:text-blue-700">
+                          {form.segmentTags.length === tags.length ? 'Deselect All' : 'Select All'}
+                        </button>
+                      </div>
+                      {tags.map((tag) => {
+                        const isSelected = form.segmentTags.includes(tag.id);
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => toggleSegmentTag(tag.id)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-gray-50 transition-colors text-left"
+                          >
+                            <div className={`flex-shrink-0 h-4 w-4 rounded border-2 flex items-center justify-center transition-colors ${isSelected ? 'bg-blue-500 border-blue-500' : 'border-gray-300'}`}>
+                              {isSelected && (
+                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                            <TagBadge name={tag.name} color={tag.color} />
+                          </button>
+                        );
+                      })}
+                    </>
+                  )}
+                </div>
               )}
             </div>
             {errors.segmentTags && <p className="mt-1 text-xs text-red-500">{errors.segmentTags}</p>}
@@ -305,7 +360,7 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
                 min={1}
                 max={10000}
                 value={form.dailyLimit}
-                onChange={(e) => handleChange('dailyLimit', parseInt(e.target.value) || 300)}
+                onChange={(e) => handleChange('dailyLimit', parseInt(e.target.value) || 1000)}
                 className={inputClass('dailyLimit')}
               />
             </div>
