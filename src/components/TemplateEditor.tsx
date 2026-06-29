@@ -417,6 +417,10 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [saving, setSaving] = useState(false);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showTestEmail, setShowTestEmail] = useState(false);
+  const [testEmail, setTestEmail] = useState('');
+  const [testSending, setTestSending] = useState(false);
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const htmlFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -539,6 +543,33 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
     }
   };
 
+  const handleSendTest = async () => {
+    if (!testEmail.trim()) return;
+    setTestSending(true);
+    setTestResult(null);
+    try {
+      const res = await fetch('/api/templates/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: testEmail.trim(),
+          subject: subject || 'Test Email - Template Preview',
+          htmlContent: getFullHtml(),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTestResult({ type: 'success', message: 'Test email sent! Check your inbox.' });
+      } else {
+        setTestResult({ type: 'error', message: data.error || 'Failed to send test email' });
+      }
+    } catch {
+      setTestResult({ type: 'error', message: 'Network error. Please try again.' });
+    } finally {
+      setTestSending(false);
+    }
+  };
+
   const handleImportHtml = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -591,6 +622,13 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
             <span className="flex items-center gap-1.5">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
               Preview
+            </span>
+          </button>
+          <button onClick={() => { setShowTestEmail(true); setTestResult(null); }}
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700 hover:bg-emerald-100 transition-colors" title="Send test email">
+            <span className="flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+              Send Test
             </span>
           </button>
           {onCancel && (
@@ -744,6 +782,48 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                   title="Email Preview"
                   sandbox="allow-same-origin"
                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send Test Email Modal */}
+      {showTestEmail && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setShowTestEmail(false)}>
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Test Email</h3>
+              <button onClick={() => setShowTestEmail(false)} className="rounded-lg p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">Recipient Email</label>
+                <input
+                  type="email"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  placeholder="your@email.com"
+                  className="w-full h-10 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSendTest(); }}
+                  autoFocus
+                />
+                <p className="mt-1.5 text-xs text-gray-400">The email will be sent using your configured SMTP settings</p>
+              </div>
+              {testResult && (
+                <div className={`rounded-lg px-4 py-3 text-sm ${testResult.type === 'success' ? 'bg-emerald-50 border border-emerald-200 text-emerald-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                  {testResult.message}
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowTestEmail(false)} className="rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">Cancel</button>
+                <button onClick={handleSendTest} disabled={testSending || !testEmail.trim()}
+                  className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 transition-colors shadow-sm">
+                  {testSending && <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" /></svg>}
+                  {testSending ? 'Sending...' : 'Send Test'}
+                </button>
               </div>
             </div>
           </div>
