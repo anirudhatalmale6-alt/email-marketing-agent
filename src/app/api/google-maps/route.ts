@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
+function makeLinkedInUrl(name: string): string {
+  const cleaned = name.replace(/[^a-zA-Z0-9\s]/g, '').trim()
+  return `https://www.linkedin.com/search/results/companies/?keywords=${encodeURIComponent(cleaned)}`
+}
+
 async function getGoogleMapsKey(): Promise<string> {
   const setting = await prisma.setting.findUnique({ where: { key: 'google_maps_api_key' } })
   if (!setting?.value) throw new Error('Google Maps API key not configured. Add it in Settings.')
@@ -75,15 +80,17 @@ export async function POST(request: NextRequest) {
 
           if (newRes.ok) {
             const r = await newRes.json()
+            const name = r.displayName?.text || ''
             results.push({
               placeId,
-              name: r.displayName?.text || '',
+              name,
               address: r.formattedAddress || '',
               phone: r.internationalPhoneNumber || r.nationalPhoneNumber || '',
               website: r.websiteUri || '',
               rating: r.rating || null,
               totalRatings: r.userRatingCount || 0,
               mapsUrl: r.googleMapsUri || '',
+              linkedinUrl: name ? makeLinkedInUrl(name) : '',
             })
             continue
           }
@@ -99,15 +106,17 @@ export async function POST(request: NextRequest) {
 
           if (data.status === 'OK' && data.result) {
             const r = data.result
+            const legacyName = r.name || ''
             results.push({
               placeId,
-              name: r.name || '',
+              name: legacyName,
               address: r.formatted_address || '',
               phone: r.international_phone_number || r.formatted_phone_number || '',
               website: r.website || '',
               rating: r.rating || null,
               totalRatings: r.user_ratings_total || 0,
               mapsUrl: r.url || '',
+              linkedinUrl: legacyName ? makeLinkedInUrl(legacyName) : '',
             })
           } else {
             errors.push(`${placeId}: ${data.status} - ${data.error_message || 'unknown error'}`)
