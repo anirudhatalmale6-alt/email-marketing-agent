@@ -220,9 +220,26 @@ export default function GoogleMapsPage() {
     setSearchingEmails(true);
     setEmailSearchedCount(0);
 
+    const searchedDomains = new Map<string, number>();
+
     for (let i = 0; i < businesses.length; i++) {
       if (businesses[i].searched || !businesses[i].details.website) continue;
+
+      const domain = extractDomain(businesses[i].details.website);
+
+      if (searchedDomains.has(domain)) {
+        const sourceIdx = searchedDomains.get(domain)!;
+        setBusinesses(prev => {
+          const next = [...prev];
+          next[i] = { ...next[i], contacts: prev[sourceIdx].contacts, loading: false, searched: true, error: prev[sourceIdx].contacts.length > 0 ? '' : 'Same domain as ' + prev[sourceIdx].details.name };
+          return next;
+        });
+        setEmailSearchedCount(prev => prev + 1);
+        continue;
+      }
+
       await searchEmails(i);
+      searchedDomains.set(domain, i);
       setEmailSearchedCount(prev => prev + 1);
       await new Promise(r => setTimeout(r, 1500));
     }
@@ -315,6 +332,15 @@ export default function GoogleMapsPage() {
   const totalContacts = businesses.reduce((sum, b) => sum + b.contacts.length, 0);
   const contactsWithEmail = businesses.reduce((sum, b) => sum + b.contacts.filter(c => c.email).length, 0);
   const withWebsite = businesses.filter(b => b.details.website).length;
+
+  const domainCount = new Map<string, number>();
+  businesses.forEach(b => {
+    if (b.details.website) {
+      const d = extractDomain(b.details.website);
+      domainCount.set(d, (domainCount.get(d) || 0) + 1);
+    }
+  });
+  const uniqueDomains = businesses.filter(b => b.details.website && domainCount.get(extractDomain(b.details.website)) === 1).length;
 
   return (
     <div className="p-6 space-y-6">
@@ -440,7 +466,7 @@ export default function GoogleMapsPage() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Step 2: Find Emails</h2>
-                <p className="text-sm text-gray-500">{withWebsite} of {businesses.length} businesses have websites. Hunter.io searches those domains.</p>
+                <p className="text-sm text-gray-500">{withWebsite} of {businesses.length} have websites ({uniqueDomains} unique domains). Duplicate domains are skipped automatically.</p>
               </div>
               <button
                 onClick={searchAllEmails}
@@ -482,9 +508,16 @@ export default function GoogleMapsPage() {
                           <span className="text-gray-600">{item.details.phone}</span>
                         )}
                         {item.details.website ? (
-                          <a href={item.details.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                            {extractDomain(item.details.website)}
-                          </a>
+                          <>
+                            <a href={item.details.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                              {extractDomain(item.details.website)}
+                            </a>
+                            {(domainCount.get(extractDomain(item.details.website)) || 0) > 1 && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-medium">
+                                shared domain
+                              </span>
+                            )}
+                          </>
                         ) : (
                           <span className="text-gray-300 italic">No website</span>
                         )}
