@@ -59,32 +59,65 @@ export async function POST(request: NextRequest) {
 
       const apiKey = await getGoogleMapsKey()
       const results = []
+      const errors: string[] = []
 
+      // Try new Places API first, fall back to legacy
       for (const placeId of placeIds.slice(0, 20)) {
-        const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
-        url.searchParams.set('place_id', placeId)
-        url.searchParams.set('fields', 'name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,url,types')
-        url.searchParams.set('key', apiKey)
-
-        const res = await fetch(url.toString())
-        const data = await res.json()
-
-        if (data.status === 'OK' && data.result) {
-          const r = data.result
-          results.push({
-            placeId,
-            name: r.name || '',
-            address: r.formatted_address || '',
-            phone: r.international_phone_number || r.formatted_phone_number || '',
-            website: r.website || '',
-            rating: r.rating || null,
-            totalRatings: r.user_ratings_total || 0,
-            mapsUrl: r.url || '',
+        try {
+          // New Places API (recommended)
+          const newRes = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Goog-Api-Key': apiKey,
+              'X-Goog-FieldMask': 'displayName,formattedAddress,internationalPhoneNumber,nationalPhoneNumber,websiteUri,rating,userRatingCount,googleMapsUri',
+            },
           })
+
+          if (newRes.ok) {
+            const r = await newRes.json()
+            results.push({
+              placeId,
+              name: r.displayName?.text || '',
+              address: r.formattedAddress || '',
+              phone: r.internationalPhoneNumber || r.nationalPhoneNumber || '',
+              website: r.websiteUri || '',
+              rating: r.rating || null,
+              totalRatings: r.userRatingCount || 0,
+              mapsUrl: r.googleMapsUri || '',
+            })
+            continue
+          }
+
+          // Fall back to legacy API
+          const url = new URL('https://maps.googleapis.com/maps/api/place/details/json')
+          url.searchParams.set('place_id', placeId)
+          url.searchParams.set('fields', 'name,formatted_address,formatted_phone_number,international_phone_number,website,rating,user_ratings_total,url,types')
+          url.searchParams.set('key', apiKey)
+
+          const res = await fetch(url.toString())
+          const data = await res.json()
+
+          if (data.status === 'OK' && data.result) {
+            const r = data.result
+            results.push({
+              placeId,
+              name: r.name || '',
+              address: r.formatted_address || '',
+              phone: r.international_phone_number || r.formatted_phone_number || '',
+              website: r.website || '',
+              rating: r.rating || null,
+              totalRatings: r.user_ratings_total || 0,
+              mapsUrl: r.url || '',
+            })
+          } else {
+            errors.push(`${placeId}: ${data.status} - ${data.error_message || 'unknown error'}`)
+          }
+        } catch (e) {
+          errors.push(`${placeId}: ${e instanceof Error ? e.message : 'fetch failed'}`)
         }
       }
 
-      return NextResponse.json({ results })
+      return NextResponse.json({ results, errors: errors.length > 0 ? errors : undefined })
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

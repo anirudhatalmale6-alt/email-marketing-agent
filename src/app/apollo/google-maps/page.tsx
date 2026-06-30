@@ -128,6 +128,7 @@ export default function GoogleMapsPage() {
     setFetchingDetails(true);
     const batchSize = 10;
     const allResults: BusinessResult[] = [];
+    let apiErrors: string[] = [];
 
     for (let i = 0; i < places.length; i += batchSize) {
       const batch = places.slice(i, i + batchSize);
@@ -139,7 +140,11 @@ export default function GoogleMapsPage() {
         });
 
         const data = await res.json();
-        if (res.ok && data.results) {
+        if (!res.ok) {
+          apiErrors.push(data.error || `HTTP ${res.status}`);
+          continue;
+        }
+        if (data.results) {
           for (const detail of data.results) {
             allResults.push({
               details: detail,
@@ -150,14 +155,24 @@ export default function GoogleMapsPage() {
             });
           }
         }
-      } catch {
-        // skip failed batch
+        if (data.errors) {
+          apiErrors = apiErrors.concat(data.errors);
+        }
+      } catch (e) {
+        apiErrors.push(e instanceof Error ? e.message : 'Network error');
       }
     }
 
     setBusinesses(allResults);
     setFetchingDetails(false);
-    showNotification('success', `Got details for ${allResults.length} businesses (${allResults.filter(b => b.details.website).length} have websites)`);
+
+    if (allResults.length > 0) {
+      showNotification('success', `Got details for ${allResults.length} businesses (${allResults.filter(b => b.details.website).length} have websites)`);
+    } else if (apiErrors.length > 0) {
+      showNotification('error', `Failed to get details: ${apiErrors[0]}. Make sure Places API (New) is enabled in Google Cloud Console.`);
+    } else {
+      showNotification('error', 'No details found. Check your Google Maps API key and enable Places API (New) in Google Cloud Console.');
+    }
   }
 
   async function searchEmails(index: number) {
