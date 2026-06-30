@@ -24,35 +24,41 @@ export async function POST(request: NextRequest) {
 
       const apiKey = await getGoogleMapsKey()
 
-      const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
-      url.searchParams.set('query', query)
-      url.searchParams.set('key', apiKey)
-      if (pageToken) url.searchParams.set('pagetoken', pageToken)
+      // Use new Places API (Text Search)
+      const searchBody: any = { textQuery: query, pageSize: 20 }
+      if (pageToken) searchBody.pageToken = pageToken
 
-      const res = await fetch(url.toString())
-      const data = await res.json()
+      const newRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': apiKey,
+          'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.types,places.businessStatus,nextPageToken',
+        },
+        body: JSON.stringify(searchBody),
+      })
 
-      if (data.status === 'REQUEST_DENIED') {
-        return NextResponse.json({ error: data.error_message || 'API key invalid or Places API not enabled' }, { status: 403 })
+      if (!newRes.ok) {
+        const errData = await newRes.json().catch(() => ({}))
+        const errMsg = errData?.error?.message || `API error ${newRes.status}`
+        return NextResponse.json({ error: errMsg }, { status: newRes.status })
       }
 
-      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-        return NextResponse.json({ error: `Google API error: ${data.status}` }, { status: 400 })
-      }
+      const data = await newRes.json()
 
-      const places = (data.results || []).map((place: any) => ({
-        placeId: place.place_id,
-        name: place.name,
-        address: place.formatted_address || '',
+      const places = (data.places || []).map((place: any) => ({
+        placeId: place.id,
+        name: place.displayName?.text || '',
+        address: place.formattedAddress || '',
         rating: place.rating || null,
-        totalRatings: place.user_ratings_total || 0,
+        totalRatings: place.userRatingCount || 0,
         types: place.types || [],
-        businessStatus: place.business_status || '',
+        businessStatus: place.businessStatus || '',
       }))
 
       return NextResponse.json({
         places,
-        nextPageToken: data.next_page_token || null,
+        nextPageToken: data.nextPageToken || null,
         total: places.length,
       })
     }
