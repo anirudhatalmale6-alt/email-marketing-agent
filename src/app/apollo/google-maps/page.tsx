@@ -91,6 +91,8 @@ export default function GoogleMapsPage() {
     pageToken ? setLoadingMore(true) : setSearching(true);
 
     try {
+      if (pageToken) await new Promise(r => setTimeout(r, 2000));
+
       const res = await fetch('/api/google-maps', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

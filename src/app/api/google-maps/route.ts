@@ -9,7 +9,8 @@ async function getGoogleMapsKey(): Promise<string> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { action, query, pageToken } = await request.json()
+    const body = await request.json()
+    const { action, query, pageToken, placeIds } = body
 
     if (action === 'search') {
       if (!query) {
@@ -52,7 +53,6 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'details') {
-      const { placeIds } = await request.json()
       if (!placeIds?.length) {
         return NextResponse.json({ error: 'placeIds required' }, { status: 400 })
       }
