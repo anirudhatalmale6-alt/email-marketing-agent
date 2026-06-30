@@ -329,6 +329,39 @@ export default function GoogleMapsPage() {
     setImporting(false);
   }
 
+  function downloadExcel() {
+    const rows: string[][] = [['Name', 'Address', 'Phone', 'Website', 'LinkedIn', 'Rating', 'Emails', 'Contacts']];
+
+    businesses.forEach(b => {
+      const emails = b.contacts.map(c => c.email).filter(Boolean).join('; ');
+      const contacts = b.contacts.map(c => [c.firstName, c.lastName].filter(Boolean).join(' ')).filter(Boolean).join('; ');
+      rows.push([
+        b.details.name,
+        b.details.address,
+        b.details.phone,
+        b.details.website,
+        b.details.linkedinUrl || '',
+        b.details.rating ? String(b.details.rating) : '',
+        emails,
+        contacts,
+      ]);
+    });
+
+    const csvContent = rows.map(row =>
+      row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(',')
+    ).join('\n');
+
+    const BOM = '﻿';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `google-maps-leads-${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    showNotification('success', `Exported ${businesses.length} businesses to CSV`);
+  }
+
   const totalContacts = businesses.reduce((sum, b) => sum + b.contacts.length, 0);
   const contactsWithEmail = businesses.reduce((sum, b) => sum + b.contacts.filter(c => c.email).length, 0);
   const withWebsite = businesses.filter(b => b.details.website).length;
@@ -468,6 +501,16 @@ export default function GoogleMapsPage() {
                 <h2 className="text-lg font-semibold text-gray-900">Step 2: Find Emails</h2>
                 <p className="text-sm text-gray-500">{withWebsite} of {businesses.length} have websites ({uniqueDomains} unique domains). Duplicate domains are skipped automatically.</p>
               </div>
+              <div className="flex items-center gap-2">
+              <button
+                onClick={downloadExcel}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </button>
               <button
                 onClick={searchAllEmails}
                 disabled={searchingEmails || withWebsite === 0}
@@ -487,6 +530,7 @@ export default function GoogleMapsPage() {
                   </>
                 )}
               </button>
+              </div>
             </div>
 
             <div className="space-y-3">
