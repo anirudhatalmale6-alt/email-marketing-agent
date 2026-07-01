@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import jwt from 'jsonwebtoken'
+import { jwtVerify } from 'jose'
 
-function getJwtSecret(): string {
-  return process.env.JWT_SECRET || '252725ea4b13506bf5fba7a7836787475c65cf9107b003af3551845b7f67a9d2'
+function getSecret() {
+  const secret = process.env.JWT_SECRET || '252725ea4b13506bf5fba7a7836787475c65cf9107b003af3551845b7f67a9d2'
+  return new TextEncoder().encode(secret)
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (
@@ -31,7 +32,7 @@ export function middleware(request: NextRequest) {
   }
 
   try {
-    jwt.verify(token, getJwtSecret())
+    await jwtVerify(token, getSecret())
     return NextResponse.next()
   } catch {
     if (pathname.startsWith('/api/')) {
