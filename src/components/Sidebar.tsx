@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 const navItems = [
   {
@@ -82,6 +82,17 @@ const navItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  async function handleLogout() {
+    await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'logout' }),
+    });
+    router.push('/login');
+    router.refresh();
+  }
 
   return (
     <aside className="fixed left-0 top-0 z-40 h-screen w-64 bg-[#1e293b] text-white flex flex-col">
@@ -126,13 +137,21 @@ export default function Sidebar() {
       <div className="border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-medium">
-            AI
+            DC
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">Agent Active</p>
-            <p className="text-xs text-slate-400">v1.0.0</p>
+            <p className="text-sm font-medium text-slate-200 truncate">DBS Cards</p>
+            <p className="text-xs text-slate-400">Admin</p>
           </div>
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+          <button
+            onClick={handleLogout}
+            className="text-slate-400 hover:text-red-400 transition-colors"
+            title="Sign out"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
         </div>
       </div>
     </aside>
