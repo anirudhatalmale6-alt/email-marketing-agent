@@ -77,6 +77,11 @@ export default function GoogleMapsPage() {
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  const [multiMode, setMultiMode] = useState(false);
+  const [multiQueries, setMultiQueries] = useState('');
+  const [multiSearching, setMultiSearching] = useState(false);
+  const [multiProgress, setMultiProgress] = useState('');
+
   const showNotification = useCallback((type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 4000);
@@ -121,6 +126,68 @@ export default function GoogleMapsPage() {
       setSearching(false);
       setLoadingMore(false);
     }
+  }
+
+  async function handleMultiSearch() {
+    const queries = multiQueries.split('\n').map(q => q.trim()).filter(Boolean);
+    if (queries.length === 0) return;
+
+    setMultiSearching(true);
+    setPlaces([]);
+    setBusinesses([]);
+    setSelected(new Set());
+    setNextPageToken(null);
+
+    const seenPlaceIds = new Set<string>();
+    let totalFound = 0;
+
+    for (let qi = 0; qi < queries.length; qi++) {
+      const q = queries[qi];
+      setMultiProgress(`Searching "${q}" (${qi + 1}/${queries.length})...`);
+
+      let token: string | null = null;
+      let pages = 0;
+
+      do {
+        try {
+          if (token) await new Promise(r => setTimeout(r, 2000));
+
+          const searchBody: Record<string, string> = { action: 'search', query: q };
+          if (token) searchBody.pageToken = token;
+
+          const searchRes: Response = await fetch('/api/google-maps', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(searchBody),
+          });
+
+          const data = await searchRes.json();
+          if (!searchRes.ok) break;
+
+          const newPlaces = (data.places || []).filter((p: Place) => !seenPlaceIds.has(p.placeId));
+          newPlaces.forEach((p: Place) => seenPlaceIds.add(p.placeId));
+
+          if (newPlaces.length > 0) {
+            setPlaces(prev => [...prev, ...newPlaces]);
+            totalFound += newPlaces.length;
+            setMultiProgress(`Searching "${q}" (${qi + 1}/${queries.length})... ${totalFound} unique places found`);
+          }
+
+          token = data.nextPageToken || null;
+          pages++;
+        } catch {
+          break;
+        }
+      } while (token && pages < 3);
+
+      if (qi < queries.length - 1) {
+        await new Promise(r => setTimeout(r, 500));
+      }
+    }
+
+    setMultiSearching(false);
+    setMultiProgress('');
+    showNotification('success', `Multi-search complete: ${totalFound} unique places from ${queries.length} searches`);
   }
 
   async function fetchPlaceDetails() {
@@ -392,32 +459,88 @@ export default function GoogleMapsPage() {
 
       {/* Search */}
       <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Step 1: Search Google Maps</h2>
-        <div className="flex items-center gap-3">
-          <input
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
-            placeholder="e.g. hotels in Dubai, restaurants in New York..."
-            className="flex-1 h-10 rounded-lg border border-gray-200 px-4 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold text-gray-900">Step 1: Search Google Maps</h2>
           <button
-            onClick={() => handleSearch()}
-            disabled={searching || !query.trim()}
-            className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+            onClick={() => setMultiMode(!multiMode)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+              multiMode ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200'
+            }`}
           >
-            {searching ? (
-              <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-            )}
-            Search
+            {multiMode ? 'Single Search' : 'Multi-Search'}
           </button>
         </div>
-        <p className="mt-2 text-xs text-gray-400">Try: "5 star hotels in Sharjah", "luxury hotels in Abu Dhabi", "resorts in Ras Al Khaimah"</p>
+
+        {!multiMode ? (
+          <>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(); }}
+                placeholder="e.g. hotels in Dubai, restaurants in New York..."
+                className="flex-1 h-10 rounded-lg border border-gray-200 px-4 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+              />
+              <button
+                onClick={() => handleSearch()}
+                disabled={searching || !query.trim()}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {searching ? (
+                  <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                )}
+                Search
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-gray-400">Try: "5 star hotels in Sharjah", "luxury hotels in Abu Dhabi", "resorts in Ras Al Khaimah"</p>
+          </>
+        ) : (
+          <>
+            <textarea
+              value={multiQueries}
+              onChange={(e) => setMultiQueries(e.target.value)}
+              placeholder={"Enter one search per line, e.g.:\nhotels in Dubai\nhotels in Abu Dhabi\nhotels in Sharjah\nresorts in Ras Al Khaimah\nboutique hotels in Dubai Marina"}
+              rows={6}
+              className="w-full rounded-lg border border-gray-200 px-4 py-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 resize-none"
+            />
+            <div className="flex items-center justify-between mt-3">
+              <p className="text-xs text-gray-400">
+                {multiQueries.split('\n').filter(q => q.trim()).length} searches queued
+                {' '}(up to {multiQueries.split('\n').filter(q => q.trim()).length * 60} results)
+              </p>
+              <button
+                onClick={handleMultiSearch}
+                disabled={multiSearching || multiQueries.split('\n').filter(q => q.trim()).length === 0}
+                className="px-5 py-2.5 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+              >
+                {multiSearching ? (
+                  <>
+                    <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Searching...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    Run All Searches
+                  </>
+                )}
+              </button>
+            </div>
+            {multiProgress && (
+              <div className="mt-3 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700 flex items-center gap-2">
+                <div className="h-3 w-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                {multiProgress}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Places results */}
