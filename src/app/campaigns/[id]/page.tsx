@@ -51,6 +51,7 @@ interface Campaign {
   followUpMaxCount: number;
   fromName: string | null;
   fromEmail: string | null;
+  smtpConfigId: string | null;
   createdAt: string;
   campaignLeads: CampaignLead[];
   stats: {

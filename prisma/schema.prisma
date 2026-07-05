@@ -90,6 +90,7 @@ model Campaign {
   followUpMaxCount Int    @default(2)
   fromName      String?
   fromEmail     String?
+  smtpConfigId  String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

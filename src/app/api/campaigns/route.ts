@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       followUpMaxCount,
       fromName,
       fromEmail,
+      smtpConfigId,
     } = body
 
     if (!name || !subject) {
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
         followUpMaxCount: followUpMaxCount || 2,
         fromName: fromName || null,
         fromEmail: fromEmail || null,
+        smtpConfigId: smtpConfigId || null,
       },
       include: {
         template: true,

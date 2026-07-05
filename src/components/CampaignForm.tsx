@@ -15,6 +15,13 @@ interface Template {
   subject: string;
 }
 
+interface SmtpConfig {
+  id: string;
+  name: string;
+  fromName: string;
+  fromEmail: string;
+}
+
 interface CampaignData {
   id?: string;
   name: string;
@@ -30,6 +37,7 @@ interface CampaignData {
   followUpMaxCount: number;
   fromName: string;
   fromEmail: string;
+  smtpConfigId: string;
 }
 
 interface CampaignFormProps {
@@ -52,12 +60,14 @@ const defaultForm: CampaignData = {
   followUpMaxCount: 2,
   fromName: '',
   fromEmail: '',
+  smtpConfigId: '',
 };
 
 export default function CampaignForm({ campaignId, onSaved, onCancel }: CampaignFormProps) {
   const [form, setForm] = useState<CampaignData>(defaultForm);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [smtpConfigs, setSmtpConfigs] = useState<SmtpConfig[]>([]);
   const [saving, setSaving] = useState(false);
   const [sending, setSending] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -66,9 +76,10 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
 
   const fetchDeps = useCallback(async () => {
     try {
-      const [tplRes, tagRes] = await Promise.all([
+      const [tplRes, tagRes, smtpRes] = await Promise.all([
         fetch('/api/templates'),
         fetch('/api/tags'),
+        fetch('/api/smtp'),
       ]);
       if (tplRes.ok) {
         const data = await tplRes.json();
@@ -77,6 +88,10 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
       if (tagRes.ok) {
         const data = await tagRes.json();
         setTags(data.tags ?? data);
+      }
+      if (smtpRes.ok) {
+        const data = await smtpRes.json();
+        setSmtpConfigs(data);
       }
     } catch (err) {
       console.error('Failed to fetch dependencies:', err);
@@ -115,6 +130,7 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
             followUpMaxCount: data.followUpMaxCount ?? 2,
             fromName: data.fromName || '',
             fromEmail: data.fromEmail || '',
+            smtpConfigId: data.smtpConfigId || '',
           });
         })
         .catch(console.error);
@@ -439,6 +455,26 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
               </div>
             )}
           </div>
+
+          {/* SMTP Configuration */}
+          {smtpConfigs.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">SMTP Account</label>
+              <select
+                value={form.smtpConfigId}
+                onChange={(e) => handleChange('smtpConfigId', e.target.value)}
+                className={inputClass('smtpConfigId')}
+              >
+                <option value="">Default SMTP</option>
+                {smtpConfigs.map((config) => (
+                  <option key={config.id} value={config.id}>
+                    {config.name} ({config.fromEmail})
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Select which SMTP account to send from. Add more in Settings.</p>
+            </div>
+          )}
 
           {/* From overrides */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

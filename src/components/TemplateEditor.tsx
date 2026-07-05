@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-type BlockType = 'logo' | 'header' | 'text' | 'image' | 'button' | 'imageText' | 'divider' | 'spacer' | 'signature';
+type BlockType = 'logo' | 'header' | 'text' | 'image' | 'button' | 'imageText' | 'box' | 'divider' | 'spacer' | 'signature';
 
 interface EditorBlock {
   id: string;
@@ -37,6 +37,7 @@ const BLOCK_DEFAULTS: Record<BlockType, () => Record<string, any>> = {
   image: () => ({ imageUrl: '', altText: '', width: '100%', alignment: 'center', linkUrl: '', borderRadius: 0, padding: 16 }),
   button: () => ({ text: 'Click Here', url: '#', bgColor: '#3b82f6', textColor: '#ffffff', borderRadius: 8, alignment: 'center', padding: 16, fontSize: 15 }),
   imageText: () => ({ imageUrl: '', imagePosition: 'left', title: 'Feature Title', description: 'Describe the feature or product here.', imageWidth: '40%', padding: 24 }),
+  box: () => ({ title: 'Feature Title', description: 'Describe the feature here.', bgColor: '#f8fafc', borderColor: '#e2e8f0', borderWidth: 1, borderRadius: 8, titleColor: '#0f766e', textColor: '#475569', padding: 20, margin: 16 }),
   divider: () => ({ color: '#e2e8f0', thickness: 1, style: 'solid', padding: 8 }),
   spacer: () => ({ height: 24 }),
   signature: () => ({ name: '', jobTitle: '', company: '', phone: '', email: '', website: '', imageUrl: '' }),
@@ -44,8 +45,8 @@ const BLOCK_DEFAULTS: Record<BlockType, () => Record<string, any>> = {
 
 const BLOCK_LABELS: Record<BlockType, string> = {
   logo: 'Logo', header: 'Header', text: 'Text', image: 'Image',
-  button: 'Button', imageText: 'Image + Text', divider: 'Divider',
-  spacer: 'Spacer', signature: 'Signature',
+  button: 'Button', imageText: 'Image + Text', box: 'Box',
+  divider: 'Divider', spacer: 'Spacer', signature: 'Signature',
 };
 
 const BLOCK_PROPS: Record<BlockType, PropDef[]> = {
@@ -95,6 +96,18 @@ const BLOCK_PROPS: Record<BlockType, PropDef[]> = {
     { key: 'title', label: 'Title', type: 'text', placeholder: 'Product or Feature Name' },
     { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Describe the product or feature...' },
     { key: 'padding', label: 'Padding', type: 'range', min: 0, max: 60, step: 4 },
+  ],
+  box: [
+    { key: 'title', label: 'Title', type: 'text', placeholder: 'Box title' },
+    { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Box content...' },
+    { key: 'bgColor', label: 'Background', type: 'color' },
+    { key: 'borderColor', label: 'Border Color', type: 'color' },
+    { key: 'borderWidth', label: 'Border Width', type: 'range', min: 0, max: 5, step: 1 },
+    { key: 'borderRadius', label: 'Corner Radius', type: 'range', min: 0, max: 20, step: 2 },
+    { key: 'titleColor', label: 'Title Color', type: 'color' },
+    { key: 'textColor', label: 'Text Color', type: 'color' },
+    { key: 'padding', label: 'Inner Padding', type: 'range', min: 8, max: 40, step: 4 },
+    { key: 'margin', label: 'Outer Margin', type: 'range', min: 0, max: 40, step: 4 },
   ],
   divider: [
     { key: 'color', label: 'Color', type: 'color' },
@@ -153,6 +166,8 @@ function renderBlockHtml(block: EditorBlock): string {
       const cells = d.imagePosition === 'right' ? textTd + imgTd : imgTd + textTd;
       return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${cells}</tr></table></div>`;
     }
+    case 'box':
+      return `<div style="padding:${d.margin}px 24px"><div style="background-color:${d.bgColor};border:${d.borderWidth}px solid ${d.borderColor};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.titleColor}"><h3 style="color:${d.titleColor};margin:0 0 8px;font-size:16px;font-weight:700">${esc(d.title)}</h3><p style="color:${d.textColor};margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word">${esc(d.description)}</p></div></div>`;
     case 'divider':
       return `<div style="padding:${d.padding}px 24px"><hr style="border:none;border-top:${d.thickness}px ${d.style} ${d.color};margin:0"></div>`;
     case 'spacer':
@@ -386,7 +401,7 @@ function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (k
   );
 }
 
-const PALETTE_ORDER: BlockType[] = ['logo', 'header', 'text', 'image', 'button', 'imageText', 'divider', 'spacer', 'signature'];
+const PALETTE_ORDER: BlockType[] = ['logo', 'header', 'text', 'image', 'button', 'imageText', 'box', 'divider', 'spacer', 'signature'];
 
 const PALETTE_ICONS: Record<BlockType, React.ReactNode> = {
   logo: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" /></svg>,
@@ -395,6 +410,7 @@ const PALETTE_ICONS: Record<BlockType, React.ReactNode> = {
   image: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   button: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" /></svg>,
   imageText: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 5h7v7H4V5zm9 0h7M13 9h7M13 13h7M4 17h16" /></svg>,
+  box: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z" /><path strokeLinecap="round" d="M8 9h8M8 13h5" /></svg>,
   divider: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 12h16" /></svg>,
   spacer: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 8h16M4 16h16" /></svg>,
   signature: <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>,
@@ -732,7 +748,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                   </button>
                 </div>
                 {/* Rendered block preview */}
-                <div className="pointer-events-none" dangerouslySetInnerHTML={{ __html: renderBlockHtml(block) }} />
+                <div className="pointer-events-none template-preview" dangerouslySetInnerHTML={{ __html: renderBlockHtml(block) }} />
               </div>
             ))}
           </div>

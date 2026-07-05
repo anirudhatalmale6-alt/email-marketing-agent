@@ -80,6 +80,7 @@ export async function PUT(
       followUpMaxCount,
       fromName,
       fromEmail,
+      smtpConfigId,
     } = body
 
     const existing = await prisma.campaign.findUnique({ where: { id } })
@@ -106,6 +107,7 @@ export async function PUT(
         ...(followUpMaxCount !== undefined && { followUpMaxCount }),
         ...(fromName !== undefined && { fromName }),
         ...(fromEmail !== undefined && { fromEmail }),
+        ...(smtpConfigId !== undefined && { smtpConfigId }),
       },
       include: { template: true },
     })

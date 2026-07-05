@@ -48,7 +48,7 @@ export async function runCampaign(campaignId: string) {
     data: { status: 'sending', startedAt: new Date() },
   })
 
-  const { transport, from } = await getSmtpTransport()
+  const { transport, from } = await getSmtpTransport(campaign.smtpConfigId || undefined)
   const fromAddress = campaign.fromEmail
     ? `"${campaign.fromName || ''}" <${campaign.fromEmail}>`
     : from
