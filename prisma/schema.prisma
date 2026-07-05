@@ -150,3 +150,11 @@ model Setting {
   key   String @unique
   value String
 }
+
+model UploadedImage {
+  id        String   @id @default(uuid())
+  filename  String
+  mimeType  String
+  data      String
+  createdAt DateTime @default(now())
+}
