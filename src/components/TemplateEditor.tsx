@@ -173,7 +173,7 @@ function renderBlockHtml(block: EditorBlock): string {
       return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${cells}</tr></table></div>`;
     }
     case 'box': {
-      const boxStyle = (bg: string) => `background-color:${bg};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.borderColor}`;
+      const boxStyle = (bg: string) => `background-color:${bg};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.borderColor};height:100%`;
       const titleStyle = `color:${d.titleColor};margin:0 0 8px;font-size:16px;font-weight:700`;
       const descStyle = `color:${d.textColor};margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word`;
       const box1 = `<div style="${boxStyle(d.bgColor1 || '#f0fdf4')}"><h3 style="${titleStyle}">${esc(d.title1 || '')}</h3><p style="${descStyle}">${esc(d.desc1 || '')}</p></div>`;
@@ -183,9 +183,9 @@ function renderBlockHtml(block: EditorBlock): string {
       const box2 = `<div style="${boxStyle(d.bgColor2 || '#eff6ff')}"><h3 style="${titleStyle}">${esc(d.title2 || '')}</h3><p style="${descStyle}">${esc(d.desc2 || '')}</p></div>`;
       if (d.layout === '3col') {
         const box3 = `<div style="${boxStyle(d.bgColor3 || '#fef3c7')}"><h3 style="${titleStyle}">${esc(d.title3 || '')}</h3><p style="${descStyle}">${esc(d.desc3 || '')}</p></div>`;
-        return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr><td width="31%" style="vertical-align:top">${box1}</td><td width="3%"></td><td width="31%" style="vertical-align:top">${box2}</td><td width="3%"></td><td width="31%" style="vertical-align:top">${box3}</td></tr></table></div>`;
+        return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-collapse:separate;border-spacing:8px 0"><tr><td width="33%" style="vertical-align:stretch">${box1}</td><td width="33%" style="vertical-align:stretch">${box2}</td><td width="33%" style="vertical-align:stretch">${box3}</td></tr></table></div>`;
       }
-      return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr><td width="48%" style="vertical-align:top">${box1}</td><td width="4%"></td><td width="48%" style="vertical-align:top">${box2}</td></tr></table></div>`;
+      return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-collapse:separate;border-spacing:8px 0"><tr><td width="50%" style="vertical-align:stretch">${box1}</td><td width="50%" style="vertical-align:stretch">${box2}</td></tr></table></div>`;
     }
     case 'divider':
       return `<div style="padding:${d.padding}px 24px"><hr style="border:none;border-top:${d.thickness}px ${d.style} ${d.color};margin:0"></div>`;
@@ -369,13 +369,37 @@ function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (k
             />
           )}
           {p.type === 'url' && (
-            <input
-              type="url"
-              value={block.data[p.key] || ''}
-              onChange={(e) => onChange(p.key, e.target.value)}
-              placeholder={p.placeholder}
-              className="w-full h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-            />
+            <div>
+              <div className="flex gap-1.5">
+                <input
+                  type="url"
+                  value={block.data[p.key] || ''}
+                  onChange={(e) => onChange(p.key, e.target.value)}
+                  placeholder={p.placeholder}
+                  className="flex-1 h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 min-w-0"
+                />
+                {p.key.toLowerCase().includes('image') && (
+                  <label className="flex-shrink-0 h-9 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer flex items-center gap-1 text-xs font-medium text-gray-600 transition-colors" title="Upload image">
+                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                    Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      const fd = new FormData();
+                      fd.append('file', file);
+                      try {
+                        const res = await fetch('/api/upload', { method: 'POST', body: fd });
+                        const data = await res.json();
+                        if (res.ok && data.url) {
+                          onChange(p.key, data.url);
+                        }
+                      } catch { /* ignore */ }
+                      e.target.value = '';
+                    }} />
+                  </label>
+                )}
+              </div>
+            </div>
           )}
           {p.type === 'color' && (
             <div className="flex items-center gap-2">
