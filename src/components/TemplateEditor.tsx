@@ -147,10 +147,10 @@ function renderBlockHtml(block: EditorBlock): string {
         ? `<img src="${esc(d.imageUrl)}" alt="Logo" width="${d.width}" style="display:inline-block;max-width:100%;height:auto">`
         : `<div style="display:inline-block;width:${d.width}px;height:60px;background:#e2e8f0;border-radius:8px;line-height:60px;color:#94a3b8;font-size:13px;text-align:center">[ Your Logo ]</div>`;
       const inner = d.linkUrl ? `<a href="${esc(d.linkUrl)}" style="text-decoration:none">${img}</a>` : img;
-      return `<div style="padding:${d.padding}px 24px;text-align:${d.alignment};background-color:${d.bgColor}">${inner}</div>`;
+      return `<div style="padding:${d.padding}px 24px;text-align:${d.alignment};background-color:${d.bgColor};overflow:hidden">${inner}</div>`;
     }
     case 'header':
-      return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700">${esc(d.title)}</h1>${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px">${esc(d.subtitle)}</p>` : ''}</div>`;
+      return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:center;border-radius:8px 8px 0 0;overflow:hidden"><h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700;word-wrap:break-word;overflow-wrap:break-word">${esc(d.title)}</h1>${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px;word-wrap:break-word;overflow-wrap:break-word">${esc(d.subtitle)}</p>` : ''}</div>`;
     case 'text':
       return `<div style="padding:${d.padding}px 24px;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word">${d.html}</div>`;
     case 'image': {
@@ -508,7 +508,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
   const getFullHtml = useCallback(() => {
     const body = blocks.map((b) => renderBlockHtml(b)).join('\n');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:${fontFamily}"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box">${body}</div></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;max-width:100%}table{max-width:100%}img{height:auto}</style></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:${fontFamily}"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box;word-wrap:break-word;overflow-wrap:break-word">${body}</div></body></html>`;
   }, [blocks, fontFamily]);
 
   const addBlock = (type: BlockType) => {
@@ -739,8 +739,8 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
         </div>
 
         {/* Center: Visual canvas */}
-        <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
-          <div className="mx-auto max-w-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-100 p-6 min-w-0">
+          <div className="mx-auto max-w-[600px] w-full bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden" style={{ wordBreak: 'break-word' }}>
             {blocks.length === 0 && (
               <div className="py-16 text-center text-gray-400">
                 <svg className="mx-auto h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
@@ -789,7 +789,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
                   </button>
                 </div>
                 {/* Rendered block preview */}
-                <div className="pointer-events-none template-preview" dangerouslySetInnerHTML={{ __html: renderBlockHtml(block) }} />
+                <div className="pointer-events-none template-preview" style={{ maxWidth: '100%', overflow: 'hidden', wordBreak: 'break-word' }} dangerouslySetInnerHTML={{ __html: renderBlockHtml(block) }} />
               </div>
             ))}
           </div>
