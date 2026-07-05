@@ -37,7 +37,7 @@ const BLOCK_DEFAULTS: Record<BlockType, () => Record<string, any>> = {
   image: () => ({ imageUrl: '', altText: '', width: '100%', alignment: 'center', linkUrl: '', borderRadius: 0, padding: 16 }),
   button: () => ({ text: 'Click Here', url: '#', bgColor: '#3b82f6', textColor: '#ffffff', borderRadius: 8, alignment: 'center', padding: 16, fontSize: 15 }),
   imageText: () => ({ imageUrl: '', imagePosition: 'left', title: 'Feature Title', description: 'Describe the feature or product here.', imageWidth: '40%', padding: 24 }),
-  box: () => ({ layout: '2col', title1: 'Smart Inventory', desc1: 'AI-powered inventory management that predicts your needs before you do.', title2: 'Smart Inventory', desc2: 'AI-powered inventory management that predicts your needs before you do.', bgColor1: '#f0fdf4', bgColor2: '#eff6ff', borderColor: '#0f766e', titleColor: '#0f766e', textColor: '#475569', borderRadius: 8, padding: 20, margin: 16 }),
+  box: () => ({ layout: '2col', title1: 'Smart Inventory', desc1: 'AI-powered inventory management that predicts your needs before you do.', bgColor1: '#f0fdf4', title2: 'Analytics', desc2: 'Real-time insights and reporting to track your business performance.', bgColor2: '#eff6ff', title3: 'Automation', desc3: 'Streamline your workflows with intelligent automation tools.', bgColor3: '#fef3c7', borderColor: '#0f766e', titleColor: '#0f766e', textColor: '#475569', borderRadius: 8, padding: 20, margin: 16 }),
   divider: () => ({ color: '#e2e8f0', thickness: 1, style: 'solid', padding: 8 }),
   spacer: () => ({ height: 24 }),
   signature: () => ({ name: '', jobTitle: '', company: '', phone: '', email: '', website: '', imageUrl: '' }),
@@ -98,13 +98,16 @@ const BLOCK_PROPS: Record<BlockType, PropDef[]> = {
     { key: 'padding', label: 'Padding', type: 'range', min: 0, max: 60, step: 4 },
   ],
   box: [
-    { key: 'layout', label: 'Layout', type: 'select', options: [{ value: '1col', label: 'Single Box' }, { value: '2col', label: 'Two Boxes Side by Side' }] },
+    { key: 'layout', label: 'Layout', type: 'select', options: [{ value: '1col', label: '1 Box' }, { value: '2col', label: '2 Boxes' }, { value: '3col', label: '3 Boxes' }] },
     { key: 'title1', label: 'Box 1 Title', type: 'text', placeholder: 'Feature title' },
     { key: 'desc1', label: 'Box 1 Description', type: 'textarea', placeholder: 'Feature description...' },
     { key: 'bgColor1', label: 'Box 1 Background', type: 'color' },
     { key: 'title2', label: 'Box 2 Title', type: 'text', placeholder: 'Feature title' },
     { key: 'desc2', label: 'Box 2 Description', type: 'textarea', placeholder: 'Feature description...' },
     { key: 'bgColor2', label: 'Box 2 Background', type: 'color' },
+    { key: 'title3', label: 'Box 3 Title', type: 'text', placeholder: 'Feature title' },
+    { key: 'desc3', label: 'Box 3 Description', type: 'textarea', placeholder: 'Feature description...' },
+    { key: 'bgColor3', label: 'Box 3 Background', type: 'color' },
     { key: 'borderColor', label: 'Left Border Color', type: 'color' },
     { key: 'titleColor', label: 'Title Color', type: 'color' },
     { key: 'textColor', label: 'Text Color', type: 'color' },
@@ -178,6 +181,10 @@ function renderBlockHtml(block: EditorBlock): string {
         return `<div style="padding:${d.margin}px 24px">${box1}</div>`;
       }
       const box2 = `<div style="${boxStyle(d.bgColor2 || '#eff6ff')}"><h3 style="${titleStyle}">${esc(d.title2 || '')}</h3><p style="${descStyle}">${esc(d.desc2 || '')}</p></div>`;
+      if (d.layout === '3col') {
+        const box3 = `<div style="${boxStyle(d.bgColor3 || '#fef3c7')}"><h3 style="${titleStyle}">${esc(d.title3 || '')}</h3><p style="${descStyle}">${esc(d.desc3 || '')}</p></div>`;
+        return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr><td width="31%" style="vertical-align:top">${box1}</td><td width="3%"></td><td width="31%" style="vertical-align:top">${box2}</td><td width="3%"></td><td width="31%" style="vertical-align:top">${box3}</td></tr></table></div>`;
+      }
       return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr><td width="48%" style="vertical-align:top">${box1}</td><td width="4%"></td><td width="48%" style="vertical-align:top">${box2}</td></tr></table></div>`;
     }
     case 'divider':
@@ -323,6 +330,15 @@ function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (k
   const props = BLOCK_PROPS[block.type];
   if (!props) return null;
 
+  const layout = block.data.layout;
+  const visibleProps = block.type === 'box'
+    ? props.filter((p) => {
+        if (layout === '1col') return !p.key.match(/^(title[23]|desc[23]|bgColor[23])$/);
+        if (layout === '2col') return !p.key.match(/^(title3|desc3|bgColor3)$/);
+        return true;
+      })
+    : props;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 pb-3 border-b border-gray-100">
@@ -331,7 +347,7 @@ function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (k
         </span>
         <span className="text-sm font-semibold text-gray-700">{BLOCK_LABELS[block.type]} Properties</span>
       </div>
-      {props.map((p) => (
+      {visibleProps.map((p) => (
         <div key={p.key}>
           <label className="block text-xs font-medium text-gray-500 mb-1.5">{p.label}</label>
           {p.type === 'text' && (
@@ -449,6 +465,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [testEmail, setTestEmail] = useState('');
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [fontFamily, setFontFamily] = useState('Arial, Helvetica, sans-serif');
   const htmlFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -491,8 +508,8 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
   const getFullHtml = useCallback(() => {
     const body = blocks.map((b) => renderBlockHtml(b)).join('\n');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box">${body}</div></body></html>`;
-  }, [blocks]);
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:${fontFamily}"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box">${body}</div></body></html>`;
+  }, [blocks, fontFamily]);
 
   const addBlock = (type: BlockType) => {
     const b: EditorBlock = { id: uid(), type, data: BLOCK_DEFAULTS[type]() };
@@ -634,6 +651,18 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
             <option value="followup">Follow-up</option>
             <option value="newsletter">Newsletter</option>
             <option value="transactional">Transactional</option>
+          </select>
+          <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)}
+            className="h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" title="Email font">
+            <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica</option>
+            <option value="Georgia, 'Times New Roman', Times, serif">Georgia</option>
+            <option value="'Times New Roman', Times, serif">Times New Roman</option>
+            <option value="Verdana, Geneva, sans-serif">Verdana</option>
+            <option value="Tahoma, Geneva, sans-serif">Tahoma</option>
+            <option value="'Trebuchet MS', Helvetica, sans-serif">Trebuchet MS</option>
+            <option value="'Lucida Sans', 'Lucida Grande', sans-serif">Lucida Sans</option>
+            <option value="'Courier New', Courier, monospace">Courier New</option>
           </select>
         </div>
         <div className="flex items-center gap-2">
