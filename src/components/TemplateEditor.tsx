@@ -37,7 +37,7 @@ const BLOCK_DEFAULTS: Record<BlockType, () => Record<string, any>> = {
   image: () => ({ imageUrl: '', altText: '', width: '100%', alignment: 'center', linkUrl: '', borderRadius: 0, padding: 16 }),
   button: () => ({ text: 'Click Here', url: '#', bgColor: '#3b82f6', textColor: '#ffffff', borderRadius: 8, alignment: 'center', padding: 16, fontSize: 15 }),
   imageText: () => ({ imageUrl: '', imagePosition: 'left', title: 'Feature Title', description: 'Describe the feature or product here.', imageWidth: '40%', padding: 24 }),
-  box: () => ({ title: 'Feature Title', description: 'Describe the feature here.', bgColor: '#f8fafc', borderColor: '#e2e8f0', borderWidth: 1, borderRadius: 8, titleColor: '#0f766e', textColor: '#475569', padding: 20, margin: 16 }),
+  box: () => ({ layout: '2col', title1: 'Smart Inventory', desc1: 'AI-powered inventory management that predicts your needs before you do.', title2: 'Smart Inventory', desc2: 'AI-powered inventory management that predicts your needs before you do.', bgColor1: '#f0fdf4', bgColor2: '#eff6ff', borderColor: '#0f766e', titleColor: '#0f766e', textColor: '#475569', borderRadius: 8, padding: 20, margin: 16 }),
   divider: () => ({ color: '#e2e8f0', thickness: 1, style: 'solid', padding: 8 }),
   spacer: () => ({ height: 24 }),
   signature: () => ({ name: '', jobTitle: '', company: '', phone: '', email: '', website: '', imageUrl: '' }),
@@ -98,14 +98,17 @@ const BLOCK_PROPS: Record<BlockType, PropDef[]> = {
     { key: 'padding', label: 'Padding', type: 'range', min: 0, max: 60, step: 4 },
   ],
   box: [
-    { key: 'title', label: 'Title', type: 'text', placeholder: 'Box title' },
-    { key: 'description', label: 'Description', type: 'textarea', placeholder: 'Box content...' },
-    { key: 'bgColor', label: 'Background', type: 'color' },
-    { key: 'borderColor', label: 'Border Color', type: 'color' },
-    { key: 'borderWidth', label: 'Border Width', type: 'range', min: 0, max: 5, step: 1 },
-    { key: 'borderRadius', label: 'Corner Radius', type: 'range', min: 0, max: 20, step: 2 },
+    { key: 'layout', label: 'Layout', type: 'select', options: [{ value: '1col', label: 'Single Box' }, { value: '2col', label: 'Two Boxes Side by Side' }] },
+    { key: 'title1', label: 'Box 1 Title', type: 'text', placeholder: 'Feature title' },
+    { key: 'desc1', label: 'Box 1 Description', type: 'textarea', placeholder: 'Feature description...' },
+    { key: 'bgColor1', label: 'Box 1 Background', type: 'color' },
+    { key: 'title2', label: 'Box 2 Title', type: 'text', placeholder: 'Feature title' },
+    { key: 'desc2', label: 'Box 2 Description', type: 'textarea', placeholder: 'Feature description...' },
+    { key: 'bgColor2', label: 'Box 2 Background', type: 'color' },
+    { key: 'borderColor', label: 'Left Border Color', type: 'color' },
     { key: 'titleColor', label: 'Title Color', type: 'color' },
     { key: 'textColor', label: 'Text Color', type: 'color' },
+    { key: 'borderRadius', label: 'Corner Radius', type: 'range', min: 0, max: 20, step: 2 },
     { key: 'padding', label: 'Inner Padding', type: 'range', min: 8, max: 40, step: 4 },
     { key: 'margin', label: 'Outer Margin', type: 'range', min: 0, max: 40, step: 4 },
   ],
@@ -166,8 +169,17 @@ function renderBlockHtml(block: EditorBlock): string {
       const cells = d.imagePosition === 'right' ? textTd + imgTd : imgTd + textTd;
       return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${cells}</tr></table></div>`;
     }
-    case 'box':
-      return `<div style="padding:${d.margin}px 24px"><div style="background-color:${d.bgColor};border:${d.borderWidth}px solid ${d.borderColor};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.titleColor}"><h3 style="color:${d.titleColor};margin:0 0 8px;font-size:16px;font-weight:700">${esc(d.title)}</h3><p style="color:${d.textColor};margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word">${esc(d.description)}</p></div></div>`;
+    case 'box': {
+      const boxStyle = (bg: string) => `background-color:${bg};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.borderColor}`;
+      const titleStyle = `color:${d.titleColor};margin:0 0 8px;font-size:16px;font-weight:700`;
+      const descStyle = `color:${d.textColor};margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word`;
+      const box1 = `<div style="${boxStyle(d.bgColor1 || '#f0fdf4')}"><h3 style="${titleStyle}">${esc(d.title1 || '')}</h3><p style="${descStyle}">${esc(d.desc1 || '')}</p></div>`;
+      if (d.layout === '1col') {
+        return `<div style="padding:${d.margin}px 24px">${box1}</div>`;
+      }
+      const box2 = `<div style="${boxStyle(d.bgColor2 || '#eff6ff')}"><h3 style="${titleStyle}">${esc(d.title2 || '')}</h3><p style="${descStyle}">${esc(d.desc2 || '')}</p></div>`;
+      return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr><td width="48%" style="vertical-align:top">${box1}</td><td width="4%"></td><td width="48%" style="vertical-align:top">${box2}</td></tr></table></div>`;
+    }
     case 'divider':
       return `<div style="padding:${d.padding}px 24px"><hr style="border:none;border-top:${d.thickness}px ${d.style} ${d.color};margin:0"></div>`;
     case 'spacer':
