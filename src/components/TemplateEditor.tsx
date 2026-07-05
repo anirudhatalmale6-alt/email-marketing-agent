@@ -133,7 +133,7 @@ function renderBlockHtml(block: EditorBlock): string {
     case 'header':
       return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:center;border-radius:8px 8px 0 0"><h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700">${esc(d.title)}</h1>${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px">${esc(d.subtitle)}</p>` : ''}</div>`;
     case 'text':
-      return `<div style="padding:${d.padding}px 24px">${d.html}</div>`;
+      return `<div style="padding:${d.padding}px 24px;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word">${d.html}</div>`;
     case 'image': {
       const img = d.imageUrl
         ? `<img src="${esc(d.imageUrl)}" alt="${esc(d.altText)}" style="max-width:100%;width:${d.width};border-radius:${d.borderRadius}px;display:block;margin:0 auto">`
@@ -149,9 +149,9 @@ function renderBlockHtml(block: EditorBlock): string {
         : `<div style="background:#e2e8f0;border-radius:8px;height:160px;display:flex;align-items:center;justify-content:center"><span style="color:#94a3b8;font-size:13px">[ Image ]</span></div>`;
       const pad = d.imagePosition === 'right' ? 'left' : 'right';
       const imgTd = `<td width="${d.imageWidth}" style="vertical-align:top;padding-${pad}:16px">${imgSrc}</td>`;
-      const textTd = `<td style="vertical-align:top"><h3 style="color:#1e293b;margin:0 0 8px;font-size:18px">${esc(d.title)}</h3><p style="color:#475569;margin:0;font-size:14px;line-height:1.5">${esc(d.description)}</p></td>`;
+      const textTd = `<td style="vertical-align:top"><h3 style="color:#1e293b;margin:0 0 8px;font-size:18px">${esc(d.title)}</h3><p style="color:#475569;margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word">${esc(d.description)}</p></td>`;
       const cells = d.imagePosition === 'right' ? textTd + imgTd : imgTd + textTd;
-      return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0"><tr>${cells}</tr></table></div>`;
+      return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${cells}</tr></table></div>`;
     }
     case 'divider':
       return `<div style="padding:${d.padding}px 24px"><hr style="border:none;border-top:${d.thickness}px ${d.style} ${d.color};margin:0"></div>`;
@@ -463,7 +463,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
   const getFullHtml = useCallback(() => {
     const body = blocks.map((b) => renderBlockHtml(b)).join('\n');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif"><div style="max-width:600px;margin:0 auto;background-color:#ffffff">${body}</div></body></html>`;
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:Arial,Helvetica,sans-serif"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box">${body}</div></body></html>`;
   }, [blocks]);
 
   const addBlock = (type: BlockType) => {
@@ -683,7 +683,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
         {/* Center: Visual canvas */}
         <div className="flex-1 overflow-y-auto bg-gray-100 p-6">
-          <div className="mx-auto max-w-[600px] bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="mx-auto max-w-[600px] bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             {blocks.length === 0 && (
               <div className="py-16 text-center text-gray-400">
                 <svg className="mx-auto h-10 w-10 mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
