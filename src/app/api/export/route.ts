@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import * as XLSX from 'xlsx'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireUser()
     const { searchParams } = new URL(request.url)
     const tag = searchParams.get('tag')
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { userId: user.userId }
     if (tag) {
       where.tags = { some: { tagId: tag } }
     }

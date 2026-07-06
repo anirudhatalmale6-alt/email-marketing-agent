@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import * as XLSX from 'xlsx'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const tagIds = formData.get('tagIds') as string | null
@@ -101,7 +103,7 @@ export async function POST(request: NextRequest) {
         }
 
         try {
-          const existing = await prisma.lead.findUnique({ where: { email } })
+          const existing = await prisma.lead.findFirst({ where: { email, userId: user.userId } })
           if (existing) {
             if (parsedTagIds.length > 0) {
               for (const tagId of parsedTagIds) {
@@ -129,6 +131,7 @@ export async function POST(request: NextRequest) {
               source: 'ensun',
               verified: false,
               status: 'new',
+              userId: user.userId,
             },
           })
 
@@ -140,11 +143,10 @@ export async function POST(request: NextRequest) {
 
           // Auto-create tags from industry/specialized areas
           if (industry) {
-            const tag = await prisma.tag.upsert({
-              where: { name: industry },
-              update: {},
-              create: { name: industry, color: '#6366F1' },
-            })
+            let tag = await prisma.tag.findFirst({ where: { name: industry, userId: user.userId } })
+            if (!tag) {
+              tag = await prisma.tag.create({ data: { name: industry, color: '#6366F1', userId: user.userId } })
+            }
             await prisma.leadTag.upsert({
               where: { leadId_tagId: { leadId: lead.id, tagId: tag.id } },
               update: {},
@@ -177,7 +179,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const existing = await prisma.lead.findUnique({ where: { email } })
+        const existing = await prisma.lead.findFirst({ where: { email, userId: user.userId } })
         if (existing) {
           if (parsedTagIds.length > 0) {
             for (const tagId of parsedTagIds) {
@@ -204,6 +206,7 @@ export async function POST(request: NextRequest) {
             city: findColumn(row, ['city', 'town', 'location']) || null,
             website: findColumn(row, ['website', 'url', 'web', 'homepage', 'uri']) || null,
             source: findColumn(row, ['source', 'leadsource', 'lead_source']) || 'import',
+            userId: user.userId,
           },
         })
 

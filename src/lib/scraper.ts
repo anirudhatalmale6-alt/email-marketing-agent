@@ -14,13 +14,14 @@ interface ScrapedLead {
 
 export async function scrapeHotelLeads(
   country: string,
-  limit: number = 50
+  limit: number = 50,
+  userId?: string
 ): Promise<{ leads: ScrapedLead[]; message: string }> {
   const hotelData = getHotelDatabase(country)
   const leads: ScrapedLead[] = []
 
   for (const hotel of hotelData.slice(0, limit)) {
-    const existing = await prisma.lead.findUnique({ where: { email: hotel.email } })
+    const existing = await prisma.lead.findFirst({ where: { email: hotel.email, ...(userId ? { userId } : {}) } })
     if (!existing) {
       leads.push(hotel)
     }
@@ -34,7 +35,8 @@ export async function scrapeHotelLeads(
 
 export async function importScrapedLeads(
   leads: ScrapedLead[],
-  tagIds: string[]
+  tagIds: string[],
+  userId?: string
 ): Promise<number> {
   let imported = 0
 
@@ -45,6 +47,7 @@ export async function importScrapedLeads(
           ...lead,
           verified: false,
           status: 'new',
+          ...(userId ? { userId } : {}),
         },
       })
 

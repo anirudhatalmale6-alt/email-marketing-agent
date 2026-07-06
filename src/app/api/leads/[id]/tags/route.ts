@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireUser()
     const { id: leadId } = await params
     const body = await request.json()
     const { tagIds } = body
@@ -48,6 +50,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    await requireUser()
     const { id: leadId } = await params
     const body = await request.json()
     const { tagId } = body

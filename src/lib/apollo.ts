@@ -163,7 +163,8 @@ export async function matchPerson(params: {
 
 export async function importApolloContacts(
   contacts: ApolloContact[],
-  tagIds: string[]
+  tagIds: string[],
+  userId?: string
 ): Promise<{ imported: number; skipped: number }> {
   let imported = 0
   let skipped = 0
@@ -172,7 +173,7 @@ export async function importApolloContacts(
     if (!contact.email) { skipped++; continue }
 
     try {
-      const existing = await prisma.lead.findUnique({ where: { email: contact.email } })
+      const existing = await prisma.lead.findFirst({ where: { email: contact.email, ...(userId ? { userId } : {}) } })
       if (existing) { skipped++; continue }
 
       const lead = await prisma.lead.create({
@@ -189,6 +190,7 @@ export async function importApolloContacts(
           source: 'apollo',
           verified: true,
           status: 'new',
+          ...(userId ? { userId } : {}),
         },
       })
 

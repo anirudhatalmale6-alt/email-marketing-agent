@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { scrapeHotelLeads, importScrapedLeads } from '@/lib/scraper'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { country, limit = 50, tagIds = [], action = 'preview' } = body
 
@@ -10,10 +12,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Country is required' }, { status: 400 })
     }
 
-    const result = await scrapeHotelLeads(country, limit)
+    const result = await scrapeHotelLeads(country, limit, user.userId)
 
     if (action === 'import' && result.leads.length > 0) {
-      const imported = await importScrapedLeads(result.leads, tagIds)
+      const imported = await importScrapedLeads(result.leads, tagIds, user.userId)
       return NextResponse.json({
         message: `Imported ${imported} leads from ${country}`,
         imported,

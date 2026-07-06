@@ -66,7 +66,8 @@ export async function importHunterContacts(
   contacts: HunterEmail[],
   companyName: string,
   companyWebsite: string,
-  tagIds: string[]
+  tagIds: string[],
+  userId?: string
 ): Promise<{ imported: number; skipped: number }> {
   let imported = 0
   let skipped = 0
@@ -75,7 +76,7 @@ export async function importHunterContacts(
     if (!contact.value) { skipped++; continue }
 
     try {
-      const existing = await prisma.lead.findUnique({ where: { email: contact.value } })
+      const existing = await prisma.lead.findFirst({ where: { email: contact.value, ...(userId ? { userId } : {}) } })
       if (existing) { skipped++; continue }
 
       const lead = await prisma.lead.create({
@@ -92,6 +93,7 @@ export async function importHunterContacts(
           source: 'hunter',
           verified: contact.confidence >= 80,
           status: 'new',
+          ...(userId ? { userId } : {}),
         },
       })
 

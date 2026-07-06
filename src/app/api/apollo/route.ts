@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { searchPeople, importApolloContacts } from '@/lib/apollo'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const {
       action = 'search',
@@ -21,7 +23,7 @@ export async function POST(request: NextRequest) {
       if (!contacts.length) {
         return NextResponse.json({ error: 'No contacts to import' }, { status: 400 })
       }
-      const result = await importApolloContacts(contacts, tagIds)
+      const result = await importApolloContacts(contacts, tagIds, user.userId)
       return NextResponse.json({
         message: `Imported ${result.imported} contacts (${result.skipped} skipped)`,
         ...result,

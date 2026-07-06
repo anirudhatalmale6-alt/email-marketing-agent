@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await requireUser()
+    const userFilter = { userId: user.userId }
+
     const [
       totalLeads,
       totalCampaigns,
@@ -13,12 +17,13 @@ export async function GET() {
       leadsByStatus,
       recentLeads,
     ] = await Promise.all([
-      prisma.lead.count(),
-      prisma.campaign.count(),
-      prisma.campaignLead.count({ where: { status: 'sent' } }),
-      prisma.campaignLead.count({ where: { openedAt: { not: null } } }),
-      prisma.campaignLead.count({ where: { clickedAt: { not: null } } }),
+      prisma.lead.count({ where: userFilter }),
+      prisma.campaign.count({ where: userFilter }),
+      prisma.campaignLead.count({ where: { status: 'sent', campaign: userFilter } }),
+      prisma.campaignLead.count({ where: { openedAt: { not: null }, campaign: userFilter } }),
+      prisma.campaignLead.count({ where: { clickedAt: { not: null }, campaign: userFilter } }),
       prisma.campaign.findMany({
+        where: userFilter,
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -34,9 +39,11 @@ export async function GET() {
       }),
       prisma.lead.groupBy({
         by: ['status'],
+        where: userFilter,
         _count: { status: true },
       }),
       prisma.lead.findMany({
+        where: userFilter,
         take: 10,
         orderBy: { createdAt: 'desc' },
         select: {

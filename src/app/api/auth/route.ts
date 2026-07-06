@@ -3,16 +3,34 @@ import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { prisma } from '@/lib/prisma'
 
-const ADMIN_USERNAME = 'dbscards'
+const DEFAULT_ADMIN_USERNAME = 'dbscards'
 const DEFAULT_PASSWORD_HASH = '$2b$10$EH1iZkivk2DF5Kg8i0gNW.AkJJLL5O90x6x566VdxZR4ITRk9IF0y'
 
 function getJwtSecret(): string {
   return process.env.JWT_SECRET || '252725ea4b13506bf5fba7a7836787475c65cf9107b003af3551845b7f67a9d2'
 }
 
-async function getPasswordHash(): Promise<string> {
-  const setting = await prisma.setting.findUnique({ where: { key: 'admin_password_hash' } })
-  return setting?.value || DEFAULT_PASSWORD_HASH
+async function ensureAdminUser() {
+  const admin = await prisma.user.findUnique({ where: { username: DEFAULT_ADMIN_USERNAME } })
+  if (!admin) {
+    const setting = await prisma.setting.findUnique({ where: { key: 'admin_password_hash' } })
+    const passwordHash = setting?.value || DEFAULT_PASSWORD_HASH
+    const created = await prisma.user.create({
+      data: {
+        username: DEFAULT_ADMIN_USERNAME,
+        password: passwordHash,
+        name: 'DBS Cards',
+        role: 'admin',
+      },
+    })
+    await prisma.lead.updateMany({ where: { userId: null }, data: { userId: created.id } })
+    await prisma.template.updateMany({ where: { userId: null }, data: { userId: created.id } })
+    await prisma.campaign.updateMany({ where: { userId: null }, data: { userId: created.id } })
+    await prisma.smtpConfig.updateMany({ where: { userId: null }, data: { userId: created.id } })
+    await prisma.tag.updateMany({ where: { userId: null }, data: { userId: created.id } })
+    return created
+  }
+  return admin
 }
 
 export async function POST(request: NextRequest) {
@@ -26,19 +44,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
       }
 
-      if (username !== ADMIN_USERNAME) {
+      await ensureAdminUser()
+
+      const user = await prisma.user.findUnique({ where: { username } })
+      if (!user) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
       }
 
-      const hash = await getPasswordHash()
-      const valid = await bcrypt.compare(password, hash)
+      const valid = await bcrypt.compare(password, user.password)
       if (!valid) {
         return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
       }
 
-      const token = jwt.sign({ username, role: 'admin' }, getJwtSecret(), { expiresIn: '7d' })
+      const token = jwt.sign(
+        { userId: user.id, username: user.username, role: user.role },
+        getJwtSecret(),
+        { expiresIn: '7d' }
+      )
 
-      const response = NextResponse.json({ success: true })
+      const response = NextResponse.json({ success: true, user: { username: user.username, name: user.name, role: user.role } })
       response.cookies.set('auth_token', token, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
@@ -69,8 +93,16 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const decoded = jwt.verify(token, getJwtSecret()) as { username: string }
-        return NextResponse.json({ authenticated: true, username: decoded.username })
+        const decoded = jwt.verify(token, getJwtSecret()) as { userId: string; username: string; role: string }
+        const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+        if (!user) return NextResponse.json({ authenticated: false })
+        return NextResponse.json({
+          authenticated: true,
+          userId: user.id,
+          username: user.username,
+          name: user.name,
+          role: user.role,
+        })
       } catch {
         return NextResponse.json({ authenticated: false })
       }
@@ -82,8 +114,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
       }
 
+      let decoded: { userId: string }
       try {
-        jwt.verify(token, getJwtSecret())
+        decoded = jwt.verify(token, getJwtSecret()) as { userId: string }
       } catch {
         return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
       }
@@ -97,17 +130,20 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'New password must be at least 6 characters' }, { status: 400 })
       }
 
-      const hash = await getPasswordHash()
-      const valid = await bcrypt.compare(currentPassword, hash)
+      const user = await prisma.user.findUnique({ where: { id: decoded.userId } })
+      if (!user) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      }
+
+      const valid = await bcrypt.compare(currentPassword, user.password)
       if (!valid) {
         return NextResponse.json({ error: 'Current password is incorrect' }, { status: 401 })
       }
 
       const newHash = await bcrypt.hash(newPassword, 10)
-      await prisma.setting.upsert({
-        where: { key: 'admin_password_hash' },
-        update: { value: newHash },
-        create: { key: 'admin_password_hash', value: newHash },
+      await prisma.user.update({
+        where: { id: decoded.userId },
+        data: { password: newHash },
       })
 
       return NextResponse.json({ success: true })

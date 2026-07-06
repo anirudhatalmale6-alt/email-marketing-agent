@@ -1,10 +1,10 @@
 import nodemailer from 'nodemailer'
 import { prisma } from './prisma'
 
-export async function getSmtpTransport(configId?: string) {
+export async function getSmtpTransport(configId?: string, userId?: string) {
   const config = configId
     ? await prisma.smtpConfig.findUnique({ where: { id: configId } })
-    : await prisma.smtpConfig.findFirst({ where: { isDefault: true } })
+    : await prisma.smtpConfig.findFirst({ where: { isDefault: true, ...(userId ? { userId } : {}) } })
 
   if (!config) throw new Error('No SMTP configuration found')
 

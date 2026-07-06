@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await requireUser()
     const campaigns = await prisma.campaign.findMany({
+      where: { userId: user.userId },
       include: {
         template: { select: { id: true, name: true } },
         _count: {
@@ -50,6 +53,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const {
       name,
@@ -88,6 +92,7 @@ export async function POST(request: NextRequest) {
         fromName: fromName || null,
         fromEmail: fromEmail || null,
         smtpConfigId: smtpConfigId || null,
+        userId: user.userId,
       },
       include: {
         template: true,

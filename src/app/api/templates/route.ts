@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await requireUser()
     const templates = await prisma.template.findMany({
+      where: { userId: user.userId },
       orderBy: { createdAt: 'desc' },
     })
     return NextResponse.json(templates)
@@ -15,6 +18,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { name, subject, htmlContent, jsonLayout, category, thumbnail } = body
 
@@ -30,6 +34,7 @@ export async function POST(request: NextRequest) {
         jsonLayout: jsonLayout || null,
         category: category || 'general',
         thumbnail: thumbnail || null,
+        userId: user.userId,
       },
     })
 

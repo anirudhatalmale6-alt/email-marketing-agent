@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { domainSearch, importHunterContacts } from '@/lib/hunter'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { action = 'search', domain = '', companyName = '', companyWebsite = '', tagIds = [], contacts = [] } = body
 
@@ -10,7 +12,7 @@ export async function POST(request: NextRequest) {
       if (!contacts.length) {
         return NextResponse.json({ error: 'No contacts to import' }, { status: 400 })
       }
-      const result = await importHunterContacts(contacts, companyName, companyWebsite, tagIds)
+      const result = await importHunterContacts(contacts, companyName, companyWebsite, tagIds, user.userId)
       return NextResponse.json({
         message: `Imported ${result.imported} contacts (${result.skipped} skipped)`,
         ...result,

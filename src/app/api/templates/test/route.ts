@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSmtpTransport } from '@/lib/email'
+import { requireUser } from '@/lib/auth'
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const { to, subject, htmlContent } = await request.json()
 
     if (!to || !htmlContent) {
@@ -12,7 +14,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { transport, from } = await getSmtpTransport()
+    const { transport, from } = await getSmtpTransport(undefined, user.userId)
 
     await transport.sendMail({
       from,

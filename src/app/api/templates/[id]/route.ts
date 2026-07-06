@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const template = await prisma.template.findUnique({
-      where: { id },
+    const template = await prisma.template.findFirst({
+      where: { id, userId: user.userId },
     })
 
     if (!template) {
@@ -27,11 +29,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
     const body = await request.json()
     const { name, subject, htmlContent, jsonLayout, category, thumbnail } = body
 
-    const existing = await prisma.template.findUnique({ where: { id } })
+    const existing = await prisma.template.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
@@ -60,8 +63,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const existing = await prisma.template.findUnique({ where: { id } })
+    const existing = await prisma.template.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }

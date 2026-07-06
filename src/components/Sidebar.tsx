@@ -1,7 +1,14 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+
+interface AuthUser {
+  username: string;
+  name: string;
+  role: string;
+}
 
 const navItems = [
   {
@@ -83,6 +90,22 @@ const navItems = [
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'check' }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.authenticated) {
+          setUser({ username: data.username, name: data.name, role: data.role });
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleLogout() {
     await fetch('/api/auth', {
@@ -131,17 +154,37 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        {user?.role === 'admin' && (
+          <Link
+            href="/team"
+            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              pathname === '/team'
+                ? 'bg-blue-500/20 text-blue-400'
+                : 'text-slate-300 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            <span className={pathname === '/team' ? 'text-blue-400' : 'text-slate-400'}>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zM12.75 12a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              </svg>
+            </span>
+            Team
+            {pathname === '/team' && (
+              <span className="ml-auto h-1.5 w-1.5 rounded-full bg-blue-400" />
+            )}
+          </Link>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="border-t border-white/10 px-4 py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-600 text-xs font-medium">
-            DC
+            {user?.name ? user.name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() : '..'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-slate-200 truncate">DBS Cards</p>
-            <p className="text-xs text-slate-400">Admin</p>
+            <p className="text-sm font-medium text-slate-200 truncate">{user?.name || 'Loading...'}</p>
+            <p className="text-xs text-slate-400 capitalize">{user?.role || ''}</p>
           </div>
           <button
             onClick={handleLogout}

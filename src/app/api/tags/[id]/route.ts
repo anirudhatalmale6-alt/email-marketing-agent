@@ -1,22 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
     const body = await request.json()
     const { name, color } = body
 
-    const existing = await prisma.tag.findUnique({ where: { id } })
+    const existing = await prisma.tag.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 })
     }
 
     if (name && name !== existing.name) {
-      const duplicate = await prisma.tag.findUnique({ where: { name } })
+      const duplicate = await prisma.tag.findFirst({ where: { name, userId: user.userId } })
       if (duplicate) {
         return NextResponse.json({ error: 'A tag with this name already exists' }, { status: 409 })
       }
@@ -42,8 +44,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const existing = await prisma.tag.findUnique({ where: { id } })
+    const existing = await prisma.tag.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Tag not found' }, { status: 404 })
     }

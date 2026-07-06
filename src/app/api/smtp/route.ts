@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET() {
   try {
+    const user = await requireUser()
     const configs = await prisma.smtpConfig.findMany({
+      where: { userId: user.userId },
       orderBy: { createdAt: 'desc' },
     })
 
@@ -22,6 +25,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { name, host, port, secure, username, password, fromName, fromEmail, isDefault } = body
 
@@ -35,7 +39,7 @@ export async function POST(request: NextRequest) {
     // If this is set as default, unset other defaults
     if (isDefault) {
       await prisma.smtpConfig.updateMany({
-        where: { isDefault: true },
+        where: { isDefault: true, userId: user.userId },
         data: { isDefault: false },
       })
     }
@@ -51,6 +55,7 @@ export async function POST(request: NextRequest) {
         fromName,
         fromEmail,
         isDefault: isDefault || false,
+        userId: user.userId,
       },
     })
 
@@ -63,6 +68,7 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { id, name, host, port, secure, username, password, fromName, fromEmail, isDefault } = body
 
@@ -70,15 +76,14 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 })
     }
 
-    const existing = await prisma.smtpConfig.findUnique({ where: { id } })
+    const existing = await prisma.smtpConfig.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'SMTP config not found' }, { status: 404 })
     }
 
-    // If setting as default, unset other defaults
     if (isDefault) {
       await prisma.smtpConfig.updateMany({
-        where: { isDefault: true, id: { not: id } },
+        where: { isDefault: true, id: { not: id }, userId: user.userId },
         data: { isDefault: false },
       })
     }

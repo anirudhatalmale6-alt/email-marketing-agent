@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import nodemailer from 'nodemailer'
+import { requireUser } from '@/lib/auth'
 
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const existing = await prisma.smtpConfig.findUnique({ where: { id } })
+    const existing = await prisma.smtpConfig.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'SMTP config not found' }, { status: 404 })
     }

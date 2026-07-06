@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
+    const user = await requireUser()
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search')
     const tag = searchParams.get('tag')
 
-    const where: Record<string, unknown> = {}
+    const where: Record<string, unknown> = { userId: user.userId }
 
     if (search) {
       where.OR = [
@@ -43,6 +45,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireUser()
     const body = await request.json()
     const { email, firstName, lastName, company, jobTitle, phone, country, city, website, source, tagIds } = body
 
@@ -50,7 +53,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'email, firstName, and lastName are required' }, { status: 400 })
     }
 
-    const existing = await prisma.lead.findUnique({ where: { email } })
+    const existing = await prisma.lead.findFirst({
+      where: { email, userId: user.userId },
+    })
     if (existing) {
       return NextResponse.json({ error: 'A lead with this email already exists' }, { status: 409 })
     }
@@ -67,6 +72,7 @@ export async function POST(request: NextRequest) {
         city: city || null,
         website: website || null,
         source: source || null,
+        userId: user.userId,
         tags: tagIds?.length
           ? {
               create: tagIds.map((tagId: string) => ({ tagId })),

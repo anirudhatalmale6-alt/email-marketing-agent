@@ -167,11 +167,10 @@ async function seed() {
   console.log('Seeding database...')
 
   for (const tag of sampleTags) {
-    await prisma.tag.upsert({
-      where: { name: tag.name },
-      update: {},
-      create: tag,
-    })
+    const existing = await prisma.tag.findFirst({ where: { name: tag.name } })
+    if (!existing) {
+      await prisma.tag.create({ data: tag })
+    }
   }
   console.log(`Created ${sampleTags.length} tags`)
 
@@ -189,7 +188,7 @@ async function seed() {
     if (!existing) {
       const createdLead = await prisma.lead.create({ data: leadData })
       for (const tagName of tagNames) {
-        const tag = await prisma.tag.findUnique({ where: { name: tagName } })
+        const tag = await prisma.tag.findFirst({ where: { name: tagName } })
         if (tag) {
           await prisma.leadTag.create({
             data: { leadId: createdLead.id, tagId: tag.id },

@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { requireUser } from '@/lib/auth'
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const lead = await prisma.lead.findUnique({
-      where: { id },
+    const lead = await prisma.lead.findFirst({
+      where: { id, userId: user.userId },
       include: {
         tags: { include: { tag: true } },
         campaignLeads: {
@@ -40,17 +42,18 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
     const body = await request.json()
     const { email, firstName, lastName, company, jobTitle, phone, country, city, website, source, verified, status } = body
 
-    const existing = await prisma.lead.findUnique({ where: { id } })
+    const existing = await prisma.lead.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
 
     if (email && email !== existing.email) {
-      const duplicate = await prisma.lead.findUnique({ where: { email } })
+      const duplicate = await prisma.lead.findFirst({ where: { email, userId: user.userId } })
       if (duplicate) {
         return NextResponse.json({ error: 'A lead with this email already exists' }, { status: 409 })
       }
@@ -103,8 +106,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const user = await requireUser()
     const { id } = await params
-    const existing = await prisma.lead.findUnique({ where: { id } })
+    const existing = await prisma.lead.findFirst({ where: { id, userId: user.userId } })
     if (!existing) {
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
