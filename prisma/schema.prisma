@@ -22,6 +22,7 @@ model User {
   campaigns   Campaign[]
   smtpConfigs SmtpConfig[]
   tags        Tag[]
+  calls       Call[]
 }
 
 model Lead {
@@ -46,6 +47,7 @@ model Lead {
   tags          LeadTag[]
   campaignLeads CampaignLead[]
   emailEvents   EmailEvent[]
+  calls         Call[]
 
   @@unique([email, userId])
 }
@@ -180,4 +182,25 @@ model UploadedImage {
   mimeType  String
   data      String
   createdAt DateTime @default(now())
+}
+
+model Call {
+  id           String   @id @default(uuid())
+  leadId       String?
+  userId       String?
+  callType     String   @default("prospect") // 'prospect' (new) or 'customer' (existing)
+  toNumber     String
+  blandCallId  String?
+  status       String   @default("queued") // queued, initiated, completed, failed
+  answeredBy   String?  // human, voicemail, no-answer, unknown
+  outcome      String?  // interested, reorder, callback, not_interested, no_answer
+  summary      String?
+  transcript   String?
+  recordingUrl String?
+  durationSec  Int?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  user User? @relation(fields: [userId], references: [id])
 }

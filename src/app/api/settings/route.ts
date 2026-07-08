@@ -8,6 +8,8 @@ const KEY_MAP: Record<string, string> = {
   googleMapsApiKey: 'google_maps_api_key',
   zerobounceApiKey: 'zerobounce_api_key',
   gmassApiKey: 'gmass_api_key',
+  blandApiKey: 'bland_api_key',
+  blandVoice: 'bland_voice',
   sendingMethod: 'sending_method',
   baseUrl: 'app_url',
   dailySendLimit: 'daily_send_limit',

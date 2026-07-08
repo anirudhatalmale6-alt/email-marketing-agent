@@ -25,6 +25,8 @@ interface AppSettings {
   googleMapsApiKey: string;
   zerobounceApiKey: string;
   gmassApiKey: string;
+  blandApiKey: string;
+  blandVoice: string;
   sendingMethod: string;
   baseUrl: string;
   dailySendLimit: number;
@@ -46,6 +48,8 @@ export default function SettingsPage() {
     googleMapsApiKey: '',
     zerobounceApiKey: '',
     gmassApiKey: '',
+    blandApiKey: '',
+    blandVoice: 'josh',
     sendingMethod: 'gmass',
     baseUrl: '',
     dailySendLimit: 300,
@@ -89,6 +93,8 @@ export default function SettingsPage() {
         googleMapsApiKey: json.googleMapsApiKey || '',
         zerobounceApiKey: json.zerobounceApiKey || '',
         gmassApiKey: json.gmassApiKey || '',
+        blandApiKey: json.blandApiKey || '',
+        blandVoice: json.blandVoice || 'josh',
         sendingMethod: json.sendingMethod || 'gmass',
         baseUrl: json.baseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
         dailySendLimit: json.dailySendLimit || 300,
@@ -386,6 +392,34 @@ export default function SettingsPage() {
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
             />
             <p className="mt-1 text-xs text-gray-400">Required for sending campaigns through GMass. Get it from GMass Settings in Gmail.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Bland.ai API Key (AI Calls)</label>
+            <input
+              type="password"
+              value={settings.blandApiKey}
+              onChange={(e) => setSettings({ ...settings, blandApiKey: e.target.value })}
+              placeholder="Enter Bland.ai API key..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">Required for the AI Calls feature. Get it from your Bland.ai dashboard.</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">AI Call Voice</label>
+            <select
+              value={settings.blandVoice}
+              onChange={(e) => setSettings({ ...settings, blandVoice: e.target.value })}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+            >
+              <option value="josh">Josh (male, US)</option>
+              <option value="nat">Nat (male, neutral)</option>
+              <option value="june">June (female, US)</option>
+              <option value="maya">Maya (female, warm)</option>
+              <option value="florian">Florian (male, UK/Euro)</option>
+            </select>
+            <p className="mt-1 text-xs text-gray-400">Voice the AI agent uses on calls. You can change and re-test anytime.</p>
           </div>
 
           <div>
