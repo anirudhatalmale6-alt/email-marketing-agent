@@ -77,11 +77,24 @@ export async function createCampaignDraft(params: GmassCampaignDraft): Promise<G
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || err.message || `GMass API error: ${res.status}`)
+    const detail = await readGmassError(res)
+    throw new Error(`GMass could not create the campaign (${res.status})${detail ? `: ${detail}` : ''}`)
   }
 
   return res.json()
+}
+
+// GMass sometimes returns its error as JSON {error/message}, sometimes as plain
+// text. Surface whatever it gives us so failures are diagnosable.
+async function readGmassError(res: Response): Promise<string> {
+  const raw = await res.text().catch(() => '')
+  if (!raw) return ''
+  try {
+    const parsed = JSON.parse(raw)
+    return parsed.error || parsed.message || raw
+  } catch {
+    return raw.slice(0, 300)
+  }
 }
 
 export async function sendCampaign(campaignDraftId: string): Promise<GmassCampaignResponse> {
@@ -93,8 +106,8 @@ export async function sendCampaign(campaignDraftId: string): Promise<GmassCampai
   })
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error(err.error || err.message || `GMass send error: ${res.status}`)
+    const detail = await readGmassError(res)
+    throw new Error(`GMass could not send the campaign (${res.status})${detail ? `: ${detail}` : ''}`)
   }
 
   return res.json()
@@ -151,10 +164,10 @@ export async function runGmassCampaign(campaignId: string): Promise<{ sent: numb
     data: { status: 'sending', startedAt: new Date() },
   })
 
-  const emailAddresses = emailList.map(l => {
-    const name = [l.firstName, l.lastName].filter(Boolean).join(' ')
-    return name ? `${name} <${l.email}>` : l.email
-  }).join(', ')
+  // GMass expects a plain comma-separated list of bare email addresses
+  // (e.g. "a@x.com,b@y.com"). Passing "Name <email>" display-name format makes
+  // the campaigndrafts endpoint return HTTP 400.
+  const emailAddresses = emailList.map(l => l.email.trim()).join(',')
 
   let htmlBody = campaign.template.htmlContent
 
