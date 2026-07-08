@@ -135,17 +135,21 @@ export async function runGmassCampaign(campaignId: string): Promise<{ sent: numb
   })
 
   if (leads.length === 0) {
-    throw new Error('No leads match the campaign segments')
+    throw new Error('No leads match the selected tag(s). Add leads to this tag, or pick a different segment.')
+  }
+
+  const emailList = leads
+    .filter(l => l.email && !l.email.includes('@placeholder.'))
+    .slice(0, campaign.dailyLimit)
+
+  if (emailList.length === 0) {
+    throw new Error(`Found ${leads.length} lead(s) but none have a real email address (all are placeholders). Import leads with valid email addresses.`)
   }
 
   await prisma.campaign.update({
     where: { id: campaignId },
     data: { status: 'sending', startedAt: new Date() },
   })
-
-  const emailList = leads
-    .filter(l => l.email && !l.email.includes('@placeholder.'))
-    .slice(0, campaign.dailyLimit)
 
   const emailAddresses = emailList.map(l => {
     const name = [l.firstName, l.lastName].filter(Boolean).join(' ')

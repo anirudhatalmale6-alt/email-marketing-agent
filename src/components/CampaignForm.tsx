@@ -200,7 +200,29 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
       if (res.ok) {
         if (send) {
           const data = await res.json();
-          await fetch(`/api/campaigns/${data.id}/send`, { method: 'POST' });
+          const campaignId = data.id;
+          // Drive the batched sender until the whole list is done. This works for
+          // both SMTP (many small batches, no serverless timeout) and GMass (one
+          // hand-off call). Crucially we now surface any failure reason instead of
+          // silently marking the campaign "failed".
+          let done = false;
+          let guard = 0;
+          while (!done && guard < 5000) {
+            guard++;
+            const sendRes = await fetch('/api/campaigns/send', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ campaignId }),
+            });
+            const sendData = await sendRes.json().catch(() => ({}));
+            if (!sendRes.ok) {
+              setErrors({ submit: sendData.error || 'Sending failed. Please try again.' });
+              setSending(false);
+              return;
+            }
+            if (sendData.paused) break;
+            done = sendData.done;
+          }
         }
         onSaved?.();
       } else {
