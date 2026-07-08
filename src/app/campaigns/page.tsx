@@ -126,19 +126,36 @@ export default function CampaignsPage() {
   async function handleSendNow(campaign: Campaign) {
     try {
       setSendingId(campaign.id);
-      const res = await fetch(`/api/campaigns/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: campaign.id }),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to send campaign');
+      showNotification('success', 'Sending started - keep this tab open until it finishes');
+
+      // Send in small batches until the whole list is done. Each request stays
+      // under the server time limit so large lists send reliably.
+      let done = false;
+      let guard = 0;
+      let lastSent = 0;
+      let total = 0;
+      while (!done && guard < 5000) {
+        guard++;
+        const res = await fetch(`/api/campaigns/send`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ campaignId: campaign.id }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || 'Failed to send campaign');
+        }
+        const data = await res.json();
+        if (typeof data.totalSent === 'number') lastSent = data.totalSent;
+        if (typeof data.total === 'number') total = data.total;
+        if (data.paused) break;
+        done = data.done;
       }
-      showNotification('success', 'Campaign sending started');
+      showNotification('success', done ? `Done - ${lastSent}${total ? ` of ${total}` : ''} emails sent` : 'Sending paused');
       fetchCampaigns();
     } catch (err) {
       showNotification('error', err instanceof Error ? err.message : 'Failed to send campaign');
+      fetchCampaigns();
     } finally {
       setSendingId(null);
     }

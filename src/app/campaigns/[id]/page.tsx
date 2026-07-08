@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, use } from 'react';
+import { useState, useEffect, useCallback, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
 import CampaignStats from '@/components/CampaignStats';
 
@@ -94,6 +94,8 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
   const [events, setEvents] = useState<EmailEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [sendProgress, setSendProgress] = useState<{ sent: number; total: number } | null>(null);
+  const cancelSendRef = useRef(false);
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   const showNotification = useCallback((type: 'success' | 'error', message: string) => {
@@ -131,34 +133,68 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
     fetchCampaign();
   }, [fetchCampaign]);
 
+  // Drives the campaign by repeatedly asking the server to send one small
+  // batch until everything is done. Each request stays well under the server
+  // time limit, so large lists (100s of emails) send reliably instead of
+  // freezing after the first few.
+  async function runBatches() {
+    let done = false;
+    let guard = 0;
+    while (!done && !cancelSendRef.current && guard < 5000) {
+      guard++;
+      const res = await fetch('/api/campaigns/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to send campaign');
+      }
+      const data = await res.json();
+      if (typeof data.totalSent === 'number' && typeof data.total === 'number') {
+        setSendProgress({ sent: data.totalSent, total: data.total });
+      }
+      if (data.paused) break;
+      done = data.done;
+    }
+    return done;
+  }
+
   async function handleAction(action: 'send' | 'pause' | 'resume') {
     try {
-      setActionLoading(true);
-
-      if (action === 'send') {
-        const res = await fetch('/api/campaigns/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ campaignId: id }),
-        });
-        if (!res.ok) throw new Error('Failed to send campaign');
-        showNotification('success', 'Campaign sending started');
-      } else {
-        const newStatus = action === 'pause' ? 'paused' : 'sending';
+      if (action === 'pause') {
+        cancelSendRef.current = true;
         const res = await fetch(`/api/campaigns/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus }),
+          body: JSON.stringify({ status: 'paused' }),
         });
-        if (!res.ok) throw new Error(`Failed to ${action} campaign`);
-        showNotification('success', `Campaign ${action === 'pause' ? 'paused' : 'resumed'}`);
+        if (!res.ok) throw new Error('Failed to pause campaign');
+        showNotification('success', 'Campaign paused');
+        fetchCampaign();
+        return;
       }
 
-      fetchCampaign();
+      // send or resume
+      setActionLoading(true);
+      cancelSendRef.current = false;
+      setSendProgress({ sent: campaign?.stats.sent || 0, total: campaign?.stats.total || 0 });
+      showNotification('success', action === 'resume' ? 'Resuming campaign...' : 'Campaign sending started - keep this tab open');
+
+      const done = await runBatches();
+      await fetchCampaign();
+      if (done) {
+        showNotification('success', 'Campaign finished - all emails sent');
+      } else if (cancelSendRef.current) {
+        showNotification('success', 'Campaign paused');
+      }
     } catch (err) {
       showNotification('error', err instanceof Error ? err.message : `Failed to ${action} campaign`);
+      fetchCampaign();
     } finally {
       setActionLoading(false);
+      setSendProgress(null);
     }
   }
 
@@ -259,16 +295,23 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               disabled={actionLoading}
               className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
             >
-              {actionLoading ? 'Starting...' : 'Send Campaign'}
+              {actionLoading ? 'Sending...' : 'Send Campaign'}
             </button>
           )}
-          {campaign.status === 'sending' && (
+          {campaign.status === 'sending' && actionLoading && (
             <button
               onClick={() => handleAction('pause')}
-              disabled={actionLoading}
-              className="px-4 py-2 text-sm font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-lg hover:bg-orange-100 transition-colors"
             >
               Pause
+            </button>
+          )}
+          {campaign.status === 'sending' && !actionLoading && (
+            <button
+              onClick={() => handleAction('resume')}
+              className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              Continue Sending
             </button>
           )}
           {campaign.status === 'paused' && (
@@ -277,11 +320,38 @@ export default function CampaignDetailPage({ params }: { params: Promise<{ id: s
               disabled={actionLoading}
               className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-colors"
             >
-              Resume
+              {actionLoading ? 'Sending...' : 'Resume'}
+            </button>
+          )}
+          {(campaign.status === 'completed' || campaign.status === 'failed') && (
+            <button
+              onClick={() => handleAction('resume')}
+              disabled={actionLoading}
+              className="px-4 py-2 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100 disabled:opacity-50 transition-colors"
+            >
+              {actionLoading ? 'Sending...' : 'Send to Remaining'}
             </button>
           )}
         </div>
       </div>
+
+      {/* Live send progress */}
+      {actionLoading && sendProgress && sendProgress.total > 0 && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium text-emerald-800">
+              Sending emails... {sendProgress.sent} of {sendProgress.total}
+            </span>
+            <span className="text-xs text-emerald-600">Keep this tab open until it finishes</span>
+          </div>
+          <div className="w-full bg-emerald-100 rounded-full h-2">
+            <div
+              className="bg-emerald-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${Math.min(100, Math.round((sendProgress.sent / sendProgress.total) * 100))}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Campaign Stats */}
       <CampaignStats stats={campaign.stats} />
