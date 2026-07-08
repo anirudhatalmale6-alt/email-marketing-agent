@@ -100,9 +100,21 @@ async function readGmassError(res: Response): Promise<string> {
 export async function sendCampaign(campaignDraftId: string): Promise<GmassCampaignResponse> {
   const apiKey = await getGmassKey()
 
+  // GMass's send endpoint deserializes the POST body into a campaignSettings
+  // object. Sending no body makes that object null on their side, which throws
+  // a NullReferenceException (500). So we must send a settings object - at
+  // minimum the draft id, plus sensible tracking defaults.
+  const settings = {
+    campaignDraftId,
+    openTracking: true,
+    clickTracking: true,
+    createDrafts: false,
+  }
+
   const res = await fetch(`${GMASS_BASE}/campaigns/${campaignDraftId}?apikey=${apiKey}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(settings),
   })
 
   if (!res.ok) {
