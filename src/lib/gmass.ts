@@ -125,17 +125,14 @@ export async function runGmassCampaign(campaignId: string): Promise<{ sent: numb
 
   const tagIds = campaign.segmentTags ? JSON.parse(campaign.segmentTags) as string[] : []
 
-  let leads
-  if (tagIds.length > 0) {
-    leads = await prisma.lead.findMany({
-      where: { tags: { some: { tagId: { in: tagIds } } } },
-      include: { tags: { include: { tag: true } } },
-    })
-  } else {
-    leads = await prisma.lead.findMany({
-      include: { tags: { include: { tag: true } } },
-    })
-  }
+  const leadFilter: Record<string, unknown> = {}
+  if (campaign.userId) leadFilter.userId = campaign.userId
+  if (tagIds.length > 0) leadFilter.tags = { some: { tagId: { in: tagIds } } }
+
+  const leads = await prisma.lead.findMany({
+    where: leadFilter,
+    include: { tags: { include: { tag: true } } },
+  })
 
   if (leads.length === 0) {
     throw new Error('No leads match the campaign segments')
