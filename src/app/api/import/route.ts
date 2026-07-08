@@ -9,6 +9,7 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
     const tagIds = formData.get('tagIds') as string | null
+    const previewOnly = formData.get('preview') === 'true'
 
     if (!file) {
       return NextResponse.json({ error: 'file is required' }, { status: 400 })
@@ -58,6 +59,36 @@ export async function POST(request: NextRequest) {
     const columnKeys = Object.keys(firstRow)
     const isEnsunFormat = columnKeys.some(k => k === 'Name') &&
       columnKeys.some(k => k === 'URI' || k === 'Headquarter')
+
+    // Preview mode: parse the first few rows and return them WITHOUT importing.
+    if (previewOnly) {
+      const preview = rows.slice(0, 5).map((row) => {
+        if (isEnsunFormat) {
+          const companyName = findColumn(row, ['name'])
+          const emails = findColumn(row, ['emails'])
+          const uri = findColumn(row, ['uri'])
+          const headquarter = findColumn(row, ['headquarter'])
+          const country = headquarter.split(',').map(s => s.trim()).pop() || ''
+          return {
+            email: emails ? emails.split(',')[0].trim() : (uri ? `info@${uri.replace(/^https?:\/\//, '').replace('www.', '').split('/')[0]}` : ''),
+            firstName: companyName,
+            lastName: '',
+            company: companyName,
+            jobTitle: '',
+            country,
+          }
+        }
+        return {
+          email: findColumn(row, ['email', 'emailaddress', 'email_address', 'e-mail', 'emails']),
+          firstName: findColumn(row, ['firstname', 'first_name', 'first', 'name', 'givenname']),
+          lastName: findColumn(row, ['lastname', 'last_name', 'last', 'surname', 'familyname']),
+          company: findColumn(row, ['company', 'organization', 'org', 'companyname']),
+          jobTitle: findColumn(row, ['jobtitle', 'job_title', 'title', 'position', 'role']),
+          country: findColumn(row, ['country', 'nation', 'countryname']),
+        }
+      })
+      return NextResponse.json({ preview, totalRows: rows.length })
+    }
 
     let imported = 0
     let skipped = 0

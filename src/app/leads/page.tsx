@@ -251,6 +251,20 @@ function LeadsContent() {
     }
   }
 
+  async function handleDeleteAllTags() {
+    if (tags.length === 0) return;
+    if (!confirm(`Delete ALL ${tags.length} tag(s)? This removes them from every lead. The leads themselves are not deleted.`)) return;
+    try {
+      await Promise.all(tags.map((t) => fetch(`/api/tags/${t.id}`, { method: 'DELETE' })));
+      showNotification('success', 'All tags deleted');
+      setTagFilter('');
+      fetchTags();
+      fetchLeads();
+    } catch {
+      showNotification('error', 'Failed to delete all tags');
+    }
+  }
+
   return (
     <div className="p-6 space-y-6">
       {/* Notification */}
@@ -406,11 +420,21 @@ function LeadsContent() {
           <div className="w-72 flex-shrink-0 bg-white rounded-xl border border-gray-200 p-4 shadow-sm h-fit animate-fade-in">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-gray-900">Tags</h3>
-              <button onClick={() => setShowTagManager(false)} className="text-gray-400 hover:text-gray-600">
+              <div className="flex items-center gap-2">
+                {tags.length > 0 && (
+                  <button
+                    onClick={handleDeleteAllTags}
+                    className="text-xs font-medium text-red-600 hover:text-red-700"
+                  >
+                    Delete all
+                  </button>
+                )}
+                <button onClick={() => setShowTagManager(false)} className="text-gray-400 hover:text-gray-600">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
+              </div>
             </div>
 
             {/* Create Tag */}
@@ -474,13 +498,20 @@ function LeadsContent() {
                         <TagBadge name={tag.name} color={tag.color} />
                         <span className="text-xs text-gray-400">{tag.leadCount || 0}</span>
                       </div>
-                      <div className="hidden group-hover:flex items-center gap-1">
-                        <button onClick={() => setEditingTag(tag)} className="text-gray-400 hover:text-gray-600 p-1">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => setEditingTag(tag)} title="Rename tag" className="text-gray-400 hover:text-gray-600 p-1">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                           </svg>
                         </button>
-                        <button onClick={() => handleDeleteTag(tag.id)} className="text-gray-400 hover:text-red-600 p-1">
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete tag "${tag.name}"? It will be removed from ${tag.leadCount || 0} lead(s). The leads themselves are not deleted.`)) {
+                              handleDeleteTag(tag.id);
+                            }
+                          }}
+                          title="Delete tag"
+                          className="text-gray-400 hover:text-red-600 p-1">
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                           </svg>

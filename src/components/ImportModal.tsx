@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import Modal from './Modal';
+import TagBadge from './TagBadge';
 
 interface PreviewRow {
   email: string;
@@ -10,6 +11,13 @@ interface PreviewRow {
   company: string;
   jobTitle: string;
   country: string;
+}
+
+interface Tag {
+  id: string;
+  name: string;
+  color: string;
+  leadCount?: number;
 }
 
 interface ImportModalProps {
@@ -25,6 +33,65 @@ export default function ImportModal({ isOpen, onClose, onImported }: ImportModal
   const [result, setResult] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Tag selection during import
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [selectedTagIds, setSelectedTagIds] = useState<Set<string>>(new Set());
+  const [newTagName, setNewTagName] = useState('');
+  const [creatingTag, setCreatingTag] = useState(false);
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tags');
+      if (res.ok) {
+        const data = await res.json();
+        setTags(data.tags ?? data);
+      }
+    } catch {
+      // silently ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) fetchTags();
+  }, [isOpen, fetchTags]);
+
+  const toggleTag = (id: string) => {
+    setSelectedTagIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleCreateTag = async () => {
+    const name = newTagName.trim();
+    if (!name || creatingTag) return;
+    setCreatingTag(true);
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setTags((prev) => [...prev, data]);
+        setSelectedTagIds((prev) => new Set(prev).add(data.id));
+        setNewTagName('');
+      } else if (res.status === 409) {
+        // Tag already exists - just select it if we can find it
+        const existing = tags.find((t) => t.name.toLowerCase() === name.toLowerCase());
+        if (existing) setSelectedTagIds((prev) => new Set(prev).add(existing.id));
+        setNewTagName('');
+      }
+    } catch {
+      // ignore
+    } finally {
+      setCreatingTag(false);
+    }
+  };
 
   const handleFile = async (f: File) => {
     setFile(f);
@@ -59,6 +126,9 @@ export default function ImportModal({ isOpen, onClose, onImported }: ImportModal
 
     const formData = new FormData();
     formData.append('file', file);
+    if (selectedTagIds.size > 0) {
+      formData.append('tagIds', JSON.stringify(Array.from(selectedTagIds)));
+    }
 
     try {
       const res = await fetch('/api/import', { method: 'POST', body: formData });
@@ -83,6 +153,8 @@ export default function ImportModal({ isOpen, onClose, onImported }: ImportModal
     setFile(null);
     setPreview([]);
     setResult(null);
+    setSelectedTagIds(new Set());
+    setNewTagName('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -115,7 +187,7 @@ export default function ImportModal({ isOpen, onClose, onImported }: ImportModal
             </p>
             <p className="mt-1 text-xs text-gray-500">or click to browse</p>
             <p className="mt-3 text-xs text-gray-400 max-w-xs">
-              Required columns: email. Optional: firstName/first_name, lastName/last_name, company, jobTitle, country, city, phone
+              Only an <span className="font-medium text-gray-500">email</span> column is required. Everything else — first name, last name, company, job title, country, city, phone — is optional.
             </p>
             <input
               ref={fileInputRef}
@@ -186,6 +258,55 @@ export default function ImportModal({ isOpen, onClose, onImported }: ImportModal
                 </div>
               </div>
             )}
+
+            {/* Tag assignment */}
+            <div>
+              <h4 className="text-sm font-medium text-gray-700 mb-1">Assign tags to imported leads</h4>
+              <p className="text-xs text-gray-400 mb-2">Optional — pick existing tags or create a new one. It&apos;ll be applied to every lead in this file.</p>
+
+              {tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {tags.map((tag) => {
+                    const active = selectedTagIds.has(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTag(tag.id)}
+                        className={`rounded-full border px-1 transition-all ${active ? 'border-blue-400 ring-2 ring-blue-200' : 'border-transparent opacity-70 hover:opacity-100'}`}
+                      >
+                        <TagBadge name={tag.name} color={tag.color} />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="New tag name (e.g. Canada Hotel)"
+                  value={newTagName}
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCreateTag(); } }}
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleCreateTag}
+                  disabled={!newTagName.trim() || creatingTag}
+                  className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {creatingTag ? 'Adding...' : 'Create & select'}
+                </button>
+              </div>
+
+              {selectedTagIds.size > 0 && (
+                <p className="mt-2 text-xs text-gray-500">
+                  {selectedTagIds.size} tag{selectedTagIds.size !== 1 ? 's' : ''} will be applied to imported leads.
+                </p>
+              )}
+            </div>
           </div>
         )}
 
