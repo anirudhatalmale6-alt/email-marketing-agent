@@ -476,6 +476,16 @@ const INITIAL_BLOCKS: EditorBlock[] = [
   { id: 'i-5', type: 'signature', data: BLOCK_DEFAULTS.signature() },
 ];
 
+// A bare, personal-looking email: just typed text and a plain signature, left
+// aligned, no coloured header/button. Paired with the "plain" layout it reads
+// exactly like a normal email written by hand.
+function makePlainBlocks(): EditorBlock[] {
+  return [
+    { id: uid(), type: 'text', data: { html: '<p style="color:#111827;margin:0 0 14px;font-size:15px;line-height:1.6">Hi {{firstName}},</p><p style="color:#111827;margin:0 0 14px;font-size:15px;line-height:1.6">I hope you\'re doing well. I wanted to reach out because...</p><p style="color:#111827;margin:0 0 14px;font-size:15px;line-height:1.6">Would you be open to a quick chat this week?</p><p style="color:#111827;margin:0;font-size:15px;line-height:1.6">Best regards,</p>', padding: 16 } },
+    { id: uid(), type: 'signature', data: BLOCK_DEFAULTS.signature() },
+  ];
+}
+
 export default function TemplateEditor({ templateId, onSaved, onCancel }: TemplateEditorProps) {
   const [name, setName] = useState('');
   const [subject, setSubject] = useState('');
@@ -490,6 +500,7 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
   const [testSending, setTestSending] = useState(false);
   const [testResult, setTestResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [fontFamily, setFontFamily] = useState('Arial, Helvetica, sans-serif');
+  const [layoutStyle, setLayoutStyle] = useState<'card' | 'plain'>('card');
   const htmlFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -500,6 +511,11 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
         if (data.name) setName(data.name);
         if (data.subject) setSubject(data.subject);
         if (data.category) setCategory(data.category);
+        // The layout choice is stamped onto the saved HTML, so re-opening a
+        // plain template keeps its plain (no-background) look.
+        if (typeof data.htmlContent === 'string' && data.htmlContent.includes('data-layout="plain"')) {
+          setLayoutStyle('plain');
+        }
         if (data.jsonLayout) {
           try {
             const parsed = JSON.parse(data.jsonLayout);
@@ -532,8 +548,15 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
 
   const getFullHtml = useCallback(() => {
     const body = blocks.map((b) => renderBlockHtml(b)).join('\n');
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;max-width:100%}table{max-width:100%}img{height:auto}</style></head><body style="margin:0;padding:0;background-color:#f1f5f9;font-family:${fontFamily}"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box;word-wrap:break-word;overflow-wrap:break-word">${body}</div></body></html>`;
-  }, [blocks, fontFamily]);
+    const head = `<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box;max-width:100%}table{max-width:100%}img{height:auto}</style></head>`;
+    if (layoutStyle === 'plain') {
+      // Plain layout: white throughout, no centred card, content aligned to the
+      // left - reads like a normal, hand-written email. data-layout is stamped so
+      // the editor can restore this look when the template is re-opened.
+      return `<!DOCTYPE html><html>${head}<body style="margin:0;padding:0;background-color:#ffffff;font-family:${fontFamily}" data-layout="plain"><div style="max-width:600px;margin:0;padding:16px 12px;background-color:#ffffff;box-sizing:border-box;word-wrap:break-word;overflow-wrap:break-word">${body}</div></body></html>`;
+    }
+    return `<!DOCTYPE html><html>${head}<body style="margin:0;padding:0;background-color:#f1f5f9;font-family:${fontFamily}"><div style="max-width:600px;margin:0 auto;background-color:#ffffff;overflow:hidden;box-sizing:border-box;word-wrap:break-word;overflow-wrap:break-word">${body}</div></body></html>`;
+  }, [blocks, fontFamily, layoutStyle]);
 
   const addBlock = (type: BlockType) => {
     const b: EditorBlock = { id: uid(), type, data: BLOCK_DEFAULTS[type]() };
@@ -688,9 +711,21 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
             <option value="'Lucida Sans', 'Lucida Grande', sans-serif">Lucida Sans</option>
             <option value="'Courier New', Courier, monospace">Courier New</option>
           </select>
+          <select value={layoutStyle} onChange={(e) => setLayoutStyle(e.target.value as 'card' | 'plain')}
+            className="h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" title="Email layout">
+            <option value="card">Card layout (centered)</option>
+            <option value="plain">Plain (left, no background)</option>
+          </select>
         </div>
         <div className="flex items-center gap-2">
           <input ref={htmlFileRef} type="file" accept=".html,.htm" onChange={handleImportHtml} className="hidden" />
+          <button onClick={() => { setBlocks(makePlainBlocks()); setLayoutStyle('plain'); setActiveId(null); }}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" title="Start a simple plain-text email">
+            <span className="flex items-center gap-1.5">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 10h16M4 14h10M4 18h6" /></svg>
+              Plain email
+            </span>
+          </button>
           <button onClick={() => htmlFileRef.current?.click()}
             className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors" title="Import HTML file">
             <span className="flex items-center gap-1.5">
