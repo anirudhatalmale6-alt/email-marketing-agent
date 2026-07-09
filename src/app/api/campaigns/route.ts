@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/lib/auth'
+import { parseEmailList, ensureLeadsForEmails } from '@/lib/recipients'
 
 export async function GET() {
   try {
@@ -60,6 +61,7 @@ export async function POST(request: NextRequest) {
       subject,
       templateId,
       segmentTags,
+      directEmails,
       scheduledAt,
       dailyLimit,
       delaySeconds,
@@ -76,12 +78,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'name and subject are required' }, { status: 400 })
     }
 
+    // "Paste emails directly" mode: no import, no lead-selecting. We parse the
+    // pasted list, make sure a contact exists for each, and store the list on the
+    // campaign so the runner sends to exactly these addresses.
+    let directEmailsJson: string | null = null
+    if (typeof directEmails === 'string' && directEmails.trim()) {
+      const emails = parseEmailList(directEmails)
+      if (emails.length === 0) {
+        return NextResponse.json({ error: 'No valid email addresses found in the list.' }, { status: 400 })
+      }
+      await ensureLeadsForEmails(emails, user.userId)
+      directEmailsJson = JSON.stringify(emails)
+    }
+
     const campaign = await prisma.campaign.create({
       data: {
         name,
         subject,
         templateId: templateId || null,
         segmentTags: Array.isArray(segmentTags) ? JSON.stringify(segmentTags) : segmentTags || null,
+        directEmails: directEmailsJson,
         scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
         dailyLimit: dailyLimit || 1000,
         delaySeconds: delaySeconds ?? 30,

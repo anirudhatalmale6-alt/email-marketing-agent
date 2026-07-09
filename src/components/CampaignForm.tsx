@@ -28,6 +28,7 @@ interface CampaignData {
   subject: string;
   templateId: string;
   segmentTags: string[];
+  directEmails: string;
   scheduledAt: string;
   dailyLimit: number;
   delaySeconds: number;
@@ -51,6 +52,7 @@ const defaultForm: CampaignData = {
   subject: '',
   templateId: '',
   segmentTags: [],
+  directEmails: '',
   scheduledAt: '',
   dailyLimit: 1000,
   delaySeconds: 30,
@@ -73,6 +75,8 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [segmentOpen, setSegmentOpen] = useState(false);
   const segmentRef = useRef<HTMLDivElement>(null);
+  // 'segments' = pick tagged leads (existing flow); 'direct' = paste addresses.
+  const [recipientMode, setRecipientMode] = useState<'segments' | 'direct'>('segments');
 
   const fetchDeps = useCallback(async () => {
     try {
@@ -115,12 +119,15 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
       fetch(`/api/campaigns/${campaignId}`)
         .then((res) => res.json())
         .then((data) => {
+          const directList: string[] = data.directEmails ? JSON.parse(data.directEmails) : [];
+          if (directList.length > 0) setRecipientMode('direct');
           setForm({
             id: data.id,
             name: data.name || '',
             subject: data.subject || '',
             templateId: data.templateId || '',
             segmentTags: data.segmentTags ? JSON.parse(data.segmentTags) : [],
+            directEmails: directList.join('\n'),
             scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString().slice(0, 16) : '',
             dailyLimit: data.dailyLimit ?? 300,
             delaySeconds: data.delaySeconds ?? 30,
@@ -170,7 +177,12 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
     if (!form.name.trim()) errs.name = 'Campaign name is required';
     if (!form.subject.trim()) errs.subject = 'Subject line is required';
     if (!form.templateId) errs.templateId = 'Please select a template';
-    if (form.segmentTags.length === 0) errs.segmentTags = 'Select at least one tag segment';
+    if (recipientMode === 'segments') {
+      if (form.segmentTags.length === 0) errs.segmentTags = 'Select at least one tag segment';
+    } else {
+      const count = form.directEmails.split(/[\s,;]+/).filter((e) => e.includes('@')).length;
+      if (count === 0) errs.directEmails = 'Enter at least one email address';
+    }
     setErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -184,9 +196,12 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
       const url = form.id ? `/api/campaigns/${form.id}` : '/api/campaigns';
       const method = form.id ? 'PUT' : 'POST';
 
+      // In "paste emails" mode we send the raw list and clear any tag segments;
+      // in "segments" mode we clear directEmails so the backend falls back to tags.
       const payload = {
         ...form,
-        segmentTags: JSON.stringify(form.segmentTags),
+        segmentTags: JSON.stringify(recipientMode === 'segments' ? form.segmentTags : []),
+        directEmails: recipientMode === 'direct' ? form.directEmails : '',
         scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : null,
         status: send ? 'sending' : 'draft',
       };
@@ -308,11 +323,49 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
             {errors.templateId && <p className="mt-1 text-xs text-red-500">{errors.templateId}</p>}
           </div>
 
-          {/* Segment tags */}
+          {/* Recipients: choose lead segments OR paste emails directly */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Target Segments <span className="text-red-500">*</span>
+              Recipients <span className="text-red-500">*</span>
             </label>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-0.5 mb-3">
+              <button
+                type="button"
+                onClick={() => setRecipientMode('segments')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${recipientMode === 'segments' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Choose lead segments
+              </button>
+              <button
+                type="button"
+                onClick={() => setRecipientMode('direct')}
+                className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${recipientMode === 'direct' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                Paste email addresses
+              </button>
+            </div>
+
+            {recipientMode === 'direct' ? (
+              <div>
+                <textarea
+                  value={form.directEmails}
+                  onChange={(e) => handleChange('directEmails', e.target.value)}
+                  rows={5}
+                  placeholder={'Paste email addresses here, one per line or separated by commas:\n\njohn@hotelabc.com\nreception@hotelxyz.co.uk'}
+                  className={`${inputClass('directEmails')} font-mono resize-y`}
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  {(() => {
+                    const c = form.directEmails.split(/[\s,;]+/).filter((e) => e.includes('@')).length;
+                    return c > 0
+                      ? `${c} email address${c === 1 ? '' : 'es'} detected. No import needed — these will be added as contacts automatically.`
+                      : 'One per line or separated by commas. No need to import into Leads first.';
+                  })()}
+                </p>
+                {errors.directEmails && <p className="mt-1 text-xs text-red-500">{errors.directEmails}</p>}
+              </div>
+            ) : (
+            <>
             <p className="text-xs text-gray-400 mb-2">Select tags to target specific lead segments</p>
             <div className="relative" ref={segmentRef}>
               <button
@@ -377,6 +430,8 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
               )}
             </div>
             {errors.segmentTags && <p className="mt-1 text-xs text-red-500">{errors.segmentTags}</p>}
+            </>
+            )}
           </div>
 
           {/* Schedule & Limits */}

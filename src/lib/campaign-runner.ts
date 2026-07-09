@@ -2,6 +2,7 @@ import { prisma } from './prisma'
 import { getSmtpTransport, injectTrackingPixel, wrapLinks, replaceVariables } from './email'
 import { personalizeEmail } from './ai'
 import { runGmassCampaign } from './gmass'
+import { buildLeadFilter } from './recipients'
 
 function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -71,11 +72,7 @@ export async function runCampaignBatch(campaignId: string): Promise<BatchResult>
   const appUrlSetting = await prisma.setting.findUnique({ where: { key: 'app_url' } })
   const baseUrl = appUrlSetting?.value || 'http://localhost:3000'
 
-  const tagIds = campaign.segmentTags ? JSON.parse(campaign.segmentTags) as string[] : []
-
-  const leadFilter: Record<string, unknown> = {}
-  if (campaign.userId) leadFilter.userId = campaign.userId
-  if (tagIds.length > 0) leadFilter.tags = { some: { tagId: { in: tagIds } } }
+  const leadFilter = buildLeadFilter(campaign)
 
   const allLeads = await prisma.lead.findMany({
     where: leadFilter,
@@ -265,14 +262,8 @@ export async function runCampaign(campaignId: string) {
   const appUrlSetting = await prisma.setting.findUnique({ where: { key: 'app_url' } })
   const baseUrl = appUrlSetting?.value || 'http://localhost:3000'
 
-  const tagIds = campaign.segmentTags ? JSON.parse(campaign.segmentTags) as string[] : []
-
-  const leadFilter: Record<string, unknown> = {}
-  if (campaign.userId) leadFilter.userId = campaign.userId
-  if (tagIds.length > 0) leadFilter.tags = { some: { tagId: { in: tagIds } } }
-
   const leads = await prisma.lead.findMany({
-    where: leadFilter,
+    where: buildLeadFilter(campaign),
     include: { tags: { include: { tag: true } } },
   })
 

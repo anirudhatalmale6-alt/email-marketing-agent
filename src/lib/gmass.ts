@@ -1,4 +1,5 @@
 import { prisma } from './prisma'
+import { buildLeadFilter } from './recipients'
 
 async function getGmassKey(): Promise<string> {
   const setting = await prisma.setting.findUnique({ where: { key: 'gmass_api_key' } })
@@ -148,19 +149,16 @@ export async function runGmassCampaign(campaignId: string): Promise<{ sent: numb
     throw new Error('Campaign or template not found')
   }
 
-  const tagIds = campaign.segmentTags ? JSON.parse(campaign.segmentTags) as string[] : []
-
-  const leadFilter: Record<string, unknown> = {}
-  if (campaign.userId) leadFilter.userId = campaign.userId
-  if (tagIds.length > 0) leadFilter.tags = { some: { tagId: { in: tagIds } } }
-
   const leads = await prisma.lead.findMany({
-    where: leadFilter,
+    where: buildLeadFilter(campaign),
     include: { tags: { include: { tag: true } } },
   })
 
   if (leads.length === 0) {
-    throw new Error('No leads match the selected tag(s). Add leads to this tag, or pick a different segment.')
+    const msg = campaign.directEmails
+      ? 'No recipients found for this campaign. Please re-enter the email addresses.'
+      : 'No leads match the selected tag(s). Add leads to this tag, or pick a different segment.'
+    throw new Error(msg)
   }
 
   const emailList = leads

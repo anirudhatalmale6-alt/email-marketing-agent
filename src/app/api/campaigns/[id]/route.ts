@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/lib/auth'
+import { parseEmailList, ensureLeadsForEmails } from '@/lib/recipients'
 
 export async function GET(
   request: NextRequest,
@@ -74,6 +75,7 @@ export async function PUT(
       status,
       templateId,
       segmentTags,
+      directEmails,
       scheduledAt,
       dailyLimit,
       delaySeconds,
@@ -91,6 +93,22 @@ export async function PUT(
       return NextResponse.json({ error: 'Campaign not found' }, { status: 404 })
     }
 
+    // "Paste emails directly" mode: parse + ensure a contact exists for each, then
+    // persist the cleaned list on the campaign (empty string clears it).
+    let directEmailsUpdate: string | null | undefined
+    if (directEmails !== undefined) {
+      if (typeof directEmails === 'string' && directEmails.trim()) {
+        const emails = parseEmailList(directEmails)
+        if (emails.length === 0) {
+          return NextResponse.json({ error: 'No valid email addresses found in the list.' }, { status: 400 })
+        }
+        await ensureLeadsForEmails(emails, user.userId)
+        directEmailsUpdate = JSON.stringify(emails)
+      } else {
+        directEmailsUpdate = null
+      }
+    }
+
     const campaign = await prisma.campaign.update({
       where: { id },
       data: {
@@ -101,6 +119,7 @@ export async function PUT(
         ...(segmentTags !== undefined && {
           segmentTags: Array.isArray(segmentTags) ? JSON.stringify(segmentTags) : segmentTags,
         }),
+        ...(directEmailsUpdate !== undefined && { directEmails: directEmailsUpdate }),
         ...(scheduledAt !== undefined && { scheduledAt: scheduledAt ? new Date(scheduledAt) : null }),
         ...(dailyLimit !== undefined && { dailyLimit }),
         ...(delaySeconds !== undefined && { delaySeconds }),

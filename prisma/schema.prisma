@@ -99,6 +99,7 @@ model Campaign {
   status        String    @default("draft")
   templateId    String?
   segmentTags   String?
+  directEmails  String?
   scheduledAt   DateTime?
   startedAt     DateTime?
   completedAt   DateTime?
