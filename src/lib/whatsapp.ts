@@ -102,6 +102,77 @@ export async function sendWhatsAppText(
   }
 }
 
+/**
+ * Send a Quick Reply (button) WhatsApp message via mittosapi, e.g. Yes / No / Call Back.
+ *
+ * NOTE: the exact JSON shape for the "Quick Reply" tab is being confirmed from the
+ * client's mittosapi panel. The button structure is isolated in buildQuickReplyPayload()
+ * so it can be adjusted in one place once the exact format is known.
+ */
+export async function sendWhatsAppQuickReply(
+  to: string,
+  bodyText: string,
+  buttons: string[]
+): Promise<SendResult> {
+  const url = await getSessionUrl()
+  const phone = normalizePhone(to)
+  if (!phone) {
+    return { ok: false, status: 'failed', raw: '', error: 'Recipient phone number is empty or invalid.' }
+  }
+  if (!bodyText || !bodyText.trim()) {
+    return { ok: false, status: 'failed', raw: '', error: 'Message is empty.' }
+  }
+
+  const payload = buildQuickReplyPayload(phone, bodyText, buttons)
+
+  let raw = ''
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    raw = await res.text()
+    let parsed: Record<string, unknown> | null = null
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = null
+    }
+    const success = interpretSuccess(res.ok, parsed, raw)
+    return {
+      ok: success,
+      status: success ? 'sent' : 'failed',
+      providerRef: extractRef(parsed),
+      raw,
+      error: success ? undefined : extractError(parsed, raw),
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      status: 'failed',
+      raw,
+      error: err instanceof Error ? err.message : 'Network error contacting WhatsApp provider.',
+    }
+  }
+}
+
+// Best-effort mittosapi Quick Reply structure. Adjust here when the exact
+// "Quick Reply" payload from the panel is confirmed.
+function buildQuickReplyPayload(phone: string, bodyText: string, buttons: string[]): Record<string, unknown> {
+  const cleanButtons = buttons.map((b) => b.trim()).filter(Boolean).slice(0, 3)
+  return {
+    type: 'button',
+    message: bodyText,
+    button: {
+      body: bodyText,
+      buttons: cleanButtons.map((title, i) => ({ id: `btn_${i + 1}`, title })),
+    },
+    buttons: cleanButtons.map((title, i) => ({ id: `btn_${i + 1}`, title })),
+    sender_phone: phone,
+  }
+}
+
 function interpretSuccess(httpOk: boolean, parsed: Record<string, unknown> | null, raw: string): boolean {
   if (parsed) {
     // Common shapes: { status: "success" }, { success: true }, { message_status: "..." }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendWhatsAppText, logWhatsAppMessage, fillTokens, normalizePhone } from '@/lib/whatsapp'
+import { sendWhatsAppText, sendWhatsAppQuickReply, logWhatsAppMessage, fillTokens, normalizePhone } from '@/lib/whatsapp'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,6 +8,8 @@ export async function POST(request: NextRequest) {
     const rawTo: string = body.to || ''
     let message: string = body.message || ''
     const leadId: string | undefined = body.leadId || undefined
+    const mode: string = body.mode === 'buttons' ? 'buttons' : 'text'
+    const buttons: string[] = Array.isArray(body.buttons) ? body.buttons : []
 
     if (!message.trim()) {
       return NextResponse.json({ error: 'Message is required.' }, { status: 400 })
@@ -43,13 +45,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await sendWhatsAppText(to, message)
+    const useButtons = mode === 'buttons' && buttons.length > 0
+    const result = useButtons
+      ? await sendWhatsAppQuickReply(to, message, buttons)
+      : await sendWhatsAppText(to, message)
 
     await logWhatsAppMessage({
       leadId: lead?.id,
       direction: 'outbound',
       toNumber: normalizePhone(to),
-      messageType: 'text',
+      messageType: useButtons ? 'buttons' : 'text',
       body: message,
       status: result.status,
       providerRef: result.providerRef,

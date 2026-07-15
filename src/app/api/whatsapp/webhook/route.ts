@@ -43,7 +43,11 @@ export async function POST(request: NextRequest) {
       payload
 
     const from = normalizePhone(pick(inner, ['from', 'sender', 'sender_phone', 'phone', 'number', 'wa_id', 'mobile']))
-    const text = pick(inner, ['message', 'text', 'body', 'content', 'msg'])
+    // A button reply may arrive as plain text (the button title) or in a dedicated field.
+    const text = pick(inner, [
+      'button', 'button_text', 'button_reply', 'button_title', 'reply', 'payload', 'selected',
+      'message', 'text', 'body', 'content', 'msg',
+    ])
     const to = normalizePhone(pick(inner, ['to', 'receiver', 'recipient', 'display_phone_number']))
 
     if (!from && !text) {
