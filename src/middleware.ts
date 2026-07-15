@@ -15,6 +15,7 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/images/') ||
     pathname.startsWith('/api/tracking/') ||
     pathname === '/api/calls/webhook' ||
+    pathname === '/api/whatsapp/webhook' ||
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/favicon') ||
     pathname.endsWith('.ico') ||
