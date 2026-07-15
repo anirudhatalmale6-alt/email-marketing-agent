@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireUser } from '@/lib/auth'
-import { sendBlandCall, buildCallTask, buildFirstSentence, SUMMARY_PROMPT } from '@/lib/bland'
+import { sendBlandCall, buildCallTask, buildFirstSentence, getSummaryPrompt } from '@/lib/bland'
 
 // List recent calls for the current user (most recent first).
 export async function GET() {
@@ -28,7 +28,8 @@ export async function POST(request: NextRequest) {
   try {
     const user = await requireUser()
     const body = await request.json()
-    const callType: string = body?.callType === 'customer' ? 'customer' : 'prospect'
+    const allowedTypes = ['prospect', 'customer', 'feedback']
+    const callType: string = allowedTypes.includes(body?.callType) ? body.callType : 'prospect'
     const leadId: string | undefined = body?.leadId || undefined
 
     let name = ''
@@ -79,7 +80,7 @@ export async function POST(request: NextRequest) {
       task,
       firstSentence,
       requestData: { name, company },
-      summaryPrompt: SUMMARY_PROMPT,
+      summaryPrompt: getSummaryPrompt(callType),
       metadata: { callRecordId: call.id },
       // Only pass a webhook if we have a public base URL (localhost won't work).
       webhook: baseUrl && baseUrl.startsWith('https://') ? `${baseUrl}/api/calls/webhook` : undefined,

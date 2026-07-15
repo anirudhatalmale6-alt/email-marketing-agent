@@ -39,7 +39,7 @@ export default function CallsPage() {
 
   const [leadId, setLeadId] = useState('');
   const [toNumber, setToNumber] = useState('');
-  const [callType, setCallType] = useState<'prospect' | 'customer'>('prospect');
+  const [callType, setCallType] = useState<'prospect' | 'customer' | 'feedback'>('prospect');
   const [placing, setPlacing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -154,11 +154,12 @@ export default function CallsPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Call type</label>
             <select
               value={callType}
-              onChange={(e) => setCallType(e.target.value as 'prospect' | 'customer')}
+              onChange={(e) => setCallType(e.target.value as 'prospect' | 'customer' | 'feedback')}
               className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="prospect">New prospect — pitch Wooden RFID Key Cards</option>
               <option value="customer">Existing customer — reorder + Wooden Door Hangers</option>
+              <option value="feedback">Customer feedback — cards / sample / salesman visit</option>
             </select>
           </div>
 
@@ -234,7 +235,7 @@ export default function CallsPage() {
                         {call.lead?.company && <span className="text-xs text-gray-400">{call.lead.company}</span>}
                         <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${badge.cls}`}>{badge.label}</span>
                         <span className="text-xs text-gray-400">
-                          {call.callType === 'customer' ? 'Existing customer' : 'New prospect'}
+                          {call.callType === 'customer' ? 'Existing customer' : call.callType === 'feedback' ? 'Customer feedback' : 'New prospect'}
                         </span>
                       </div>
                       <div className="mt-1 text-xs text-gray-500 font-mono">{call.toNumber}</div>

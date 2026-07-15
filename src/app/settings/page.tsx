@@ -414,18 +414,22 @@ export default function SettingsPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">AI Call Voice</label>
-            <select
+            <input
+              list="bland-voices"
+              type="text"
               value={settings.blandVoice}
               onChange={(e) => setSettings({ ...settings, blandVoice: e.target.value })}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-            >
+              placeholder="Paste a Bland voice ID (e.g. an Indian-accent voice)"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <datalist id="bland-voices">
               <option value="josh">Josh (male, US)</option>
               <option value="nat">Nat (male, neutral)</option>
               <option value="june">June (female, US)</option>
               <option value="maya">Maya (female, warm)</option>
               <option value="florian">Florian (male, UK/Euro)</option>
-            </select>
-            <p className="mt-1 text-xs text-gray-400">Voice the AI agent uses on calls. You can change and re-test anytime.</p>
+            </datalist>
+            <p className="mt-1 text-xs text-gray-400">Voice the AI agent uses on calls. For an English (Indian accent) voice, open your Bland dashboard → Voices, pick an Indian-accent voice, and paste its ID/name here. You can change and re-test anytime.</p>
           </div>
 
           <div>
