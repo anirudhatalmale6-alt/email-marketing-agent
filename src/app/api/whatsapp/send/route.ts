@@ -10,6 +10,8 @@ export async function POST(request: NextRequest) {
     const leadId: string | undefined = body.leadId || undefined
     const mode: string = body.mode === 'buttons' ? 'buttons' : 'text'
     const buttons: string[] = Array.isArray(body.buttons) ? body.buttons : []
+    const header: string = typeof body.header === 'string' ? body.header : ''
+    const footer: string = typeof body.footer === 'string' ? body.footer : ''
 
     if (!message.trim()) {
       return NextResponse.json({ error: 'Message is required.' }, { status: 400 })
@@ -47,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     const useButtons = mode === 'buttons' && buttons.length > 0
     const result = useButtons
-      ? await sendWhatsAppQuickReply(to, message, buttons)
+      ? await sendWhatsAppQuickReply(to, message, buttons, { header, footer })
       : await sendWhatsAppText(to, message)
 
     await logWhatsAppMessage({

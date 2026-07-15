@@ -112,7 +112,8 @@ export async function sendWhatsAppText(
 export async function sendWhatsAppQuickReply(
   to: string,
   bodyText: string,
-  buttons: string[]
+  buttons: string[],
+  opts: { header?: string; footer?: string } = {}
 ): Promise<SendResult> {
   const url = await getSessionUrl()
   const phone = normalizePhone(to)
@@ -123,7 +124,7 @@ export async function sendWhatsAppQuickReply(
     return { ok: false, status: 'failed', raw: '', error: 'Message is empty.' }
   }
 
-  const payload = buildQuickReplyPayload(phone, bodyText, buttons)
+  const payload = buildQuickReplyPayload(phone, bodyText, buttons, opts)
 
   let raw = ''
   try {
@@ -157,20 +158,24 @@ export async function sendWhatsAppQuickReply(
   }
 }
 
-// Best-effort mittosapi Quick Reply structure. Adjust here when the exact
-// "Quick Reply" payload from the panel is confirmed.
-function buildQuickReplyPayload(phone: string, bodyText: string, buttons: string[]): Record<string, unknown> {
+// mittosapi Quick Reply structure (confirmed from panel 2026-07-15):
+// { type:'quick_reply', header, body, footer, buttons:[str,str,str], sender_phone }
+function buildQuickReplyPayload(
+  phone: string,
+  bodyText: string,
+  buttons: string[],
+  opts: { header?: string; footer?: string } = {}
+): Record<string, unknown> {
   const cleanButtons = buttons.map((b) => b.trim()).filter(Boolean).slice(0, 3)
-  return {
-    type: 'button',
-    message: bodyText,
-    button: {
-      body: bodyText,
-      buttons: cleanButtons.map((title, i) => ({ id: `btn_${i + 1}`, title })),
-    },
-    buttons: cleanButtons.map((title, i) => ({ id: `btn_${i + 1}`, title })),
+  const payload: Record<string, unknown> = {
+    type: 'quick_reply',
+    body: bodyText,
+    buttons: cleanButtons,
     sender_phone: phone,
   }
+  if (opts.header && opts.header.trim()) payload.header = opts.header.trim()
+  if (opts.footer && opts.footer.trim()) payload.footer = opts.footer.trim()
+  return payload
 }
 
 function interpretSuccess(httpOk: boolean, parsed: Record<string, unknown> | null, raw: string): boolean {

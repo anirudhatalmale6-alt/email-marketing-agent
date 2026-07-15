@@ -74,6 +74,7 @@ export default function WhatsAppPage() {
   const [fileName, setFileName] = useState('');
   const [parsing, setParsing] = useState(false);
   const [bulkTemplate, setBulkTemplate] = useState(DELIVERY_TEMPLATE);
+  const [bulkHeader, setBulkHeader] = useState('DBS CARDS');
   const [useButtons, setUseButtons] = useState(true);
   const [btn1, setBtn1] = useState('Yes');
   const [btn2, setBtn2] = useState('No');
@@ -181,6 +182,7 @@ export default function WhatsAppPage() {
             message,
             mode: useButtons ? 'buttons' : 'text',
             buttons,
+            header: bulkHeader,
           }),
         });
         const json = await res.json();
@@ -305,10 +307,16 @@ export default function WhatsAppPage() {
                 )}
               </div>
 
+              {/* Header */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">2. Header <span className="text-gray-400 font-normal">(bold title, optional)</span></label>
+                <input value={bulkHeader} onChange={(e) => setBulkHeader(e.target.value)} placeholder="e.g. DBS CARDS" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+              </div>
+
               {/* Message */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-sm font-medium text-gray-700">2. Message</label>
+                  <label className="block text-sm font-medium text-gray-700">3. Message</label>
                   <button onClick={() => setBulkTemplate(DELIVERY_TEMPLATE)} className="text-xs text-emerald-600 hover:text-emerald-700 font-medium">Reset template</button>
                 </div>
                 <textarea value={bulkTemplate} onChange={(e) => setBulkTemplate(e.target.value)} rows={4} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500" />
@@ -319,7 +327,7 @@ export default function WhatsAppPage() {
               <div>
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
                   <input type="checkbox" checked={useButtons} onChange={(e) => setUseButtons(e.target.checked)} className="rounded border-gray-300 text-emerald-600 focus:ring-emerald-500" />
-                  3. Add reply buttons
+                  4. Add reply buttons
                 </label>
                 {useButtons && (
                   <div className="grid grid-cols-3 gap-2">
@@ -333,6 +341,7 @@ export default function WhatsAppPage() {
               {/* Preview */}
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3">
                 <p className="text-xs font-medium text-gray-500 mb-1">Preview (first row)</p>
+                {bulkHeader.trim() && <p className="text-sm font-bold text-gray-900 mb-1">{bulkHeader}</p>}
                 <p className="text-sm text-gray-800 whitespace-pre-wrap">{bulkPreview}</p>
                 {useButtons && (
                   <div className="mt-2 space-y-1">
