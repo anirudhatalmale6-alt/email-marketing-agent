@@ -48,6 +48,7 @@ model Lead {
   campaignLeads CampaignLead[]
   emailEvents   EmailEvent[]
   calls         Call[]
+  whatsappMessages WhatsAppMessage[]
 
   @@unique([email, userId])
 }
@@ -204,4 +205,23 @@ model Call {
 
   lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
   user User? @relation(fields: [userId], references: [id])
+}
+
+model WhatsAppMessage {
+  id          String   @id @default(uuid())
+  leadId      String?
+  direction   String   @default("outbound") // outbound, inbound
+  toNumber    String   // recipient (outbound) or our number (inbound)
+  fromNumber  String?  // sender number for inbound replies
+  messageType String   @default("text") // text, template, image, document
+  body        String
+  status      String   @default("sent") // sent, failed, delivered, received
+  providerRef String?  // mittosapi message id / ref if returned
+  rawResponse String?  // raw provider JSON for debugging
+  createdAt   DateTime @default(now())
+
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([direction, createdAt])
+  @@index([toNumber])
 }

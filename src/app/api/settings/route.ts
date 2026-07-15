@@ -13,6 +13,8 @@ const KEY_MAP: Record<string, string> = {
   sendingMethod: 'sending_method',
   baseUrl: 'app_url',
   dailySendLimit: 'daily_send_limit',
+  whatsappSessionUrl: 'whatsapp_session_url',
+  whatsappTemplateUrl: 'whatsapp_template_url',
 }
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
