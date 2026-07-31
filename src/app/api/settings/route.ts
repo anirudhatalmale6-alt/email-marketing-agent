@@ -15,13 +15,18 @@ const KEY_MAP: Record<string, string> = {
   dailySendLimit: 'daily_send_limit',
   whatsappSessionUrl: 'whatsapp_session_url',
   whatsappTemplateUrl: 'whatsapp_template_url',
+  whatsappProvider: 'whatsapp_provider',
+  twilioAccountSid: 'twilio_account_sid',
+  twilioAuthToken: 'twilio_auth_token',
+  twilioWhatsappFrom: 'twilio_whatsapp_from',
+  twilioContentSid: 'twilio_content_sid',
 }
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
   Object.entries(KEY_MAP).map(([k, v]) => [v, k])
 )
 
-const SENSITIVE_KEYS = ['api_key', 'password', 'secret']
+const SENSITIVE_KEYS = ['api_key', 'password', 'secret', 'auth_token']
 
 function isSensitive(key: string): boolean {
   return SENSITIVE_KEYS.some(s => key.includes(s))

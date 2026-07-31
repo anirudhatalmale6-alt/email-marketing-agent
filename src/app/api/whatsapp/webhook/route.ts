@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { logWhatsAppMessage, normalizePhone } from '@/lib/whatsapp'
 
-// Inbound webhook for mittosapi. The exact payload field names vary by gateway,
-// so we defensively read the common ones. Configure this URL as the "webhook" /
-// "callback" in the mittosapi panel to capture customer replies (e.g. "received").
+// Inbound webhook for WhatsApp replies (Twilio or mittosapi). Field names vary by
+// provider — Twilio uses PascalCase (From, Body, ButtonText), mittos uses lowercase —
+// so we lowercase every key and read the common ones defensively. Configure this URL as
+// the inbound / "when a message comes in" callback in your provider panel to capture
+// customer replies (e.g. "received", or a Yes/No/Call Back button tap).
 //
 // Some gateways verify the endpoint with a GET first — answer 200 so setup passes.
 export async function GET(request: NextRequest) {
@@ -37,16 +39,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Unwrap one level of nesting if the provider wraps in { data: {...} } / { message: {...} }
-    const inner =
+    const nested =
       (payload.data as Record<string, unknown>) ||
       (payload.message as Record<string, unknown>) ||
       payload
 
+    // Lowercase every key so Twilio's PascalCase (From/Body/ButtonText) and mittos'
+    // lowercase both resolve through the same lookups.
+    const inner: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(nested)) inner[k.toLowerCase()] = v
+
+    // Twilio also POSTs delivery/read status callbacks if the same URL is set as a status
+    // callback — those carry a status but no inbound text, so skip them (don't log as replies).
+    const statusOnly = pick(inner, ['messagestatus', 'smsstatus'])
+    const hasInboundText = pick(inner, ['buttontext', 'button', 'body', 'text', 'message', 'content'])
+    if (statusOnly && !hasInboundText) {
+      return NextResponse.json({ ok: true, ignored: 'status-callback' })
+    }
+
     const from = normalizePhone(pick(inner, ['from', 'sender', 'sender_phone', 'phone', 'number', 'wa_id', 'mobile']))
     // A button reply may arrive as plain text (the button title) or in a dedicated field.
     const text = pick(inner, [
-      'button', 'button_text', 'button_reply', 'button_title', 'reply', 'payload', 'selected',
-      'message', 'text', 'body', 'content', 'msg',
+      'buttontext', 'buttonpayload', 'button', 'button_text', 'button_reply', 'button_title',
+      'reply', 'payload', 'selected', 'message', 'text', 'body', 'content', 'msg',
     ])
     const to = normalizePhone(pick(inner, ['to', 'receiver', 'recipient', 'display_phone_number']))
 

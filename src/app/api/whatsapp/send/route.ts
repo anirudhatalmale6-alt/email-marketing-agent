@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { sendWhatsAppText, sendWhatsAppQuickReply, logWhatsAppMessage, fillTokens, normalizePhone } from '@/lib/whatsapp'
+import { sendWhatsAppText, sendWhatsAppQuickReply, sendWhatsAppTemplate, logWhatsAppMessage, fillTokens, normalizePhone } from '@/lib/whatsapp'
 
 export async function POST(request: NextRequest) {
   try {
@@ -8,17 +8,25 @@ export async function POST(request: NextRequest) {
     const rawTo: string = body.to || ''
     let message: string = body.message || ''
     const leadId: string | undefined = body.leadId || undefined
-    const mode: string = body.mode === 'buttons' ? 'buttons' : 'text'
+    const mode: string = ['buttons', 'template'].includes(body.mode) ? body.mode : 'text'
     const buttons: string[] = Array.isArray(body.buttons) ? body.buttons : []
     const header: string = typeof body.header === 'string' ? body.header : ''
     const footer: string = typeof body.footer === 'string' ? body.footer : ''
+    const contentSid: string = typeof body.contentSid === 'string' ? body.contentSid.trim() : ''
+    const variablesIn: Record<string, string> =
+      body.variables && typeof body.variables === 'object' && !Array.isArray(body.variables) ? body.variables : {}
 
-    if (!message.trim()) {
+    // Template mode carries no free-form message (the body lives in the approved template).
+    if (mode !== 'template' && !message.trim()) {
       return NextResponse.json({ error: 'Message is required.' }, { status: 400 })
+    }
+    if (mode === 'template' && !contentSid) {
+      return NextResponse.json({ error: 'An approved template (Content SID) is required for template sends.' }, { status: 400 })
     }
 
     let to = rawTo
     let lead = null
+    const tokenVars: Record<string, string> = { date: body.date || '' }
 
     // If a lead is chosen, pull its number (unless an explicit number was given) and
     // resolve personalisation tokens from the lead's fields.
@@ -28,17 +36,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Selected customer not found.' }, { status: 404 })
       }
       if (!to.trim()) to = lead.phone || ''
-      message = fillTokens(message, {
+      Object.assign(tokenVars, {
         firstName: lead.firstName || '',
         lastName: lead.lastName || '',
         company: lead.company || '',
         email: lead.email || '',
-        date: body.date || '',
       })
-    } else {
-      // Still allow {{date}} and any provided vars for ad-hoc sends.
-      message = fillTokens(message, { date: body.date || '' })
     }
+    message = fillTokens(message, tokenVars)
+    // Resolve any {{token}} left inside template variable values too.
+    const variables: Record<string, string> = {}
+    for (const [k, v] of Object.entries(variablesIn)) variables[k] = fillTokens(String(v ?? ''), tokenVars)
 
     if (!normalizePhone(to)) {
       return NextResponse.json(
@@ -48,16 +56,19 @@ export async function POST(request: NextRequest) {
     }
 
     const useButtons = mode === 'buttons' && buttons.length > 0
-    const result = useButtons
-      ? await sendWhatsAppQuickReply(to, message, buttons, { header, footer })
-      : await sendWhatsAppText(to, message)
+    const result =
+      mode === 'template'
+        ? await sendWhatsAppTemplate(to, contentSid, variables)
+        : useButtons
+        ? await sendWhatsAppQuickReply(to, message, buttons, { header, footer })
+        : await sendWhatsAppText(to, message)
 
     await logWhatsAppMessage({
       leadId: lead?.id,
       direction: 'outbound',
       toNumber: normalizePhone(to),
-      messageType: useButtons ? 'buttons' : 'text',
-      body: message,
+      messageType: mode === 'template' ? 'template' : useButtons ? 'buttons' : 'text',
+      body: mode === 'template' ? (message.trim() || `[template ${contentSid}] ${JSON.stringify(variables)}`) : message,
       status: result.status,
       providerRef: result.providerRef,
       rawResponse: result.raw,

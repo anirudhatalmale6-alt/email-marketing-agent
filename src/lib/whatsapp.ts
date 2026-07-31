@@ -19,6 +19,146 @@ export async function getTemplateUrl(): Promise<string> {
   return getSetting('whatsapp_template_url')
 }
 
+export type WhatsAppProvider = 'twilio' | 'mittos'
+
+/**
+ * Which WhatsApp provider to send through. Explicit 'whatsapp_provider' setting wins;
+ * otherwise we auto-detect: if Twilio creds are present use Twilio, else fall back to mittos.
+ */
+export async function getProvider(): Promise<WhatsAppProvider> {
+  const explicit = (await getSetting('whatsapp_provider')).toLowerCase()
+  if (explicit === 'twilio' || explicit === 'mittos') return explicit
+  const sid = await getSetting('twilio_account_sid')
+  return sid ? 'twilio' : 'mittos'
+}
+
+// ---------------------------------------------------------------------------
+// Twilio WhatsApp (official Meta WhatsApp Business API BSP)
+// ---------------------------------------------------------------------------
+
+async function getTwilioCreds(): Promise<{ accountSid: string; authToken: string; from: string }> {
+  const accountSid = await getSetting('twilio_account_sid')
+  const authToken = await getSetting('twilio_auth_token')
+  const from = await getSetting('twilio_whatsapp_from')
+  if (!accountSid || !authToken) {
+    throw new Error('Twilio Account SID / Auth Token not configured. Add them in Settings > WhatsApp.')
+  }
+  if (!from) {
+    throw new Error('Twilio WhatsApp sender number not configured. Add it in Settings > WhatsApp.')
+  }
+  return { accountSid, authToken, from }
+}
+
+// Twilio expects addresses like "whatsapp:+919812345678".
+function twilioAddr(num: string): string {
+  const s = (num || '').trim()
+  if (s.toLowerCase().startsWith('whatsapp:')) return 'whatsapp:' + s.slice(9).replace(/[^0-9+]/g, '')
+  const cleaned = s.replace(/[^0-9+]/g, '')
+  const withPlus = cleaned.startsWith('+') ? cleaned : '+' + cleaned.replace(/^\+*/, '')
+  return 'whatsapp:' + withPlus
+}
+
+async function sendTwilio(
+  to: string,
+  params: { body?: string; contentSid?: string; contentVariables?: Record<string, string> }
+): Promise<SendResult> {
+  let creds
+  try {
+    creds = await getTwilioCreds()
+  } catch (e) {
+    return { ok: false, status: 'failed', raw: '', error: e instanceof Error ? e.message : 'Twilio not configured.' }
+  }
+
+  const toAddr = twilioAddr(to)
+  if (toAddr === 'whatsapp:+' || toAddr === 'whatsapp:') {
+    return { ok: false, status: 'failed', raw: '', error: 'Recipient phone number is empty or invalid.' }
+  }
+
+  const form = new URLSearchParams()
+  form.set('From', twilioAddr(creds.from))
+  form.set('To', toAddr)
+  if (params.contentSid) {
+    form.set('ContentSid', params.contentSid)
+    if (params.contentVariables && Object.keys(params.contentVariables).length) {
+      form.set('ContentVariables', JSON.stringify(params.contentVariables))
+    }
+  } else {
+    if (!params.body || !params.body.trim()) {
+      return { ok: false, status: 'failed', raw: '', error: 'Message is empty.' }
+    }
+    form.set('Body', params.body)
+  }
+
+  const url = `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(creds.accountSid)}/Messages.json`
+  const auth = Buffer.from(`${creds.accountSid}:${creds.authToken}`).toString('base64')
+
+  let raw = ''
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: form.toString(),
+    })
+    raw = await res.text()
+    let parsed: Record<string, unknown> | null = null
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      parsed = null
+    }
+
+    // Twilio success -> { sid, status: 'queued'|'sent'|... }; error -> { code, message, status: <http> }
+    if (!res.ok || !parsed || parsed.sid === undefined) {
+      const errMsg = parsed ? String(parsed.message ?? parsed.error_message ?? raw) : raw
+      return { ok: false, status: 'failed', raw, error: (errMsg || `Twilio HTTP ${res.status}`).slice(0, 300) }
+    }
+
+    const sid = String(parsed.sid ?? '')
+    const tStatus = String(parsed.status ?? '').toLowerCase()
+    const failed = ['failed', 'undelivered'].includes(tStatus)
+    return {
+      ok: !failed,
+      status: failed ? 'failed' : 'sent',
+      providerRef: sid || undefined,
+      raw,
+      error: failed ? String(parsed.error_message ?? 'Message failed') : undefined,
+    }
+  } catch (err) {
+    return {
+      ok: false,
+      status: 'failed',
+      raw,
+      error: err instanceof Error ? err.message : 'Network error contacting Twilio.',
+    }
+  }
+}
+
+/**
+ * Send an approved WhatsApp template (marketing/utility) to a recipient.
+ * Twilio: uses a Content Template (ContentSid) + merge variables keyed "1","2",...
+ * mittos: falls back to the template URL send (best-effort).
+ */
+export async function sendWhatsAppTemplate(
+  to: string,
+  contentSid: string,
+  variables: Record<string, string> = {}
+): Promise<SendResult> {
+  const provider = await getProvider()
+  if (provider === 'twilio') {
+    if (!contentSid || !contentSid.trim()) {
+      return { ok: false, status: 'failed', raw: '', error: 'No approved template selected (Twilio ContentSid is empty).' }
+    }
+    return sendTwilio(to, { contentSid: contentSid.trim(), contentVariables: variables })
+  }
+  // mittos template path is provider-specific and configured via whatsapp_template_url;
+  // left as a text send fallback until the mittos template payload is confirmed.
+  return { ok: false, status: 'failed', raw: '', error: 'Template sending is only wired for Twilio right now.' }
+}
+
 // Normalise a phone number to the format mittosapi expects: country code + number,
 // digits only, no plus sign or spaces (e.g. "44xxxxxxxxxx").
 export function normalizePhone(input: string): string {
@@ -49,6 +189,11 @@ export async function sendWhatsAppText(
   message: string,
   opts: { type?: string; caption?: string } = {}
 ): Promise<SendResult> {
+  const provider = await getProvider()
+  if (provider === 'twilio') {
+    return sendTwilio(to, { body: message })
+  }
+
   const url = await getSessionUrl()
   const phone = normalizePhone(to)
   if (!phone) {
@@ -115,6 +260,14 @@ export async function sendWhatsAppQuickReply(
   buttons: string[],
   opts: { header?: string; footer?: string } = {}
 ): Promise<SendResult> {
+  const provider = await getProvider()
+  if (provider === 'twilio') {
+    // Twilio bakes buttons into an approved Content Template, so freeform quick-reply
+    // isn't available in a session send - deliver the body as text (buttons arrive via
+    // sendWhatsAppTemplate once the client has an approved ContentSid).
+    return sendTwilio(to, { body: bodyText })
+  }
+
   const url = await getSessionUrl()
   const phone = normalizePhone(to)
   if (!phone) {
