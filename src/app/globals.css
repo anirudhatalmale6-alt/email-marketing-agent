@@ -74,6 +74,24 @@ body {
   animation: slideDown 0.3s ease-out;
 }
 
+/* Tailwind's reset makes headings and <b> inherit their weight, but email
+   clients render them bold. That mismatch meant text looked normal in the
+   editor and arrived bold. Restore email-like defaults so the editor shows
+   what will actually be sent. An explicit inline font-weight still wins. */
+[contenteditable] h1, .template-preview h1,
+[contenteditable] h2, .template-preview h2,
+[contenteditable] h3, .template-preview h3,
+[contenteditable] h4, .template-preview h4,
+[contenteditable] h5, .template-preview h5,
+[contenteditable] h6, .template-preview h6 {
+  font-weight: 700;
+}
+
+[contenteditable] b, .template-preview b,
+[contenteditable] strong, .template-preview strong {
+  font-weight: 700;
+}
+
 /* Restore list styles in template editor and preview */
 [contenteditable] ul,
 .template-preview ul {

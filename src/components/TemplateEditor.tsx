@@ -142,6 +142,20 @@ function esc(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Email clients render <h1>-<h6> bold by default, so a heading with no explicit
+// font-weight arrives bold even when the editor showed it as normal weight.
+// Stamp the weight onto every heading so what is sent can't drift from what is
+// shown. Headings the user has already given a weight are left alone.
+function normalizeHeadings(html: string): string {
+  return (html || '').replace(/<(h[1-6])([^>]*)>/gi, (whole, tag, attrs) => {
+    if (/font-weight/i.test(attrs)) return whole;
+    if (/\sstyle\s*=\s*"/i.test(attrs)) {
+      return `<${tag}${attrs.replace(/\sstyle\s*=\s*"/i, ' style="font-weight:700;')}>`;
+    }
+    return `<${tag}${attrs} style="font-weight:700">`;
+  });
+}
+
 // Same as esc(), but keeps the line breaks the user typed in a textarea.
 // Without this every description collapses into one run-on paragraph.
 function escLines(s: string): string {
@@ -166,7 +180,7 @@ function renderBlockHtml(block: EditorBlock): string {
       return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:${align};border-radius:8px 8px 0 0;overflow:hidden">${logo}${d.title ? `<h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700;word-wrap:break-word;overflow-wrap:break-word">${esc(d.title)}</h1>` : ''}${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px;word-wrap:break-word;overflow-wrap:break-word">${escLines(d.subtitle)}</p>` : ''}</div>`;
     }
     case 'text':
-      return `<div style="padding:${d.padding}px 24px;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word">${d.html}</div>`;
+      return `<div style="padding:${d.padding}px 24px;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word">${normalizeHeadings(d.html)}</div>`;
     case 'image': {
       const img = d.imageUrl
         ? `<img src="${esc(d.imageUrl)}" alt="${esc(d.altText)}" style="max-width:100%;width:${d.width};border-radius:${d.borderRadius}px;display:block;margin:0 auto">`
@@ -315,6 +329,43 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
     if (ref.current) onChange(ref.current.innerHTML);
   };
 
+  // Set an explicit font-weight on the selection. execCommand has no weight
+  // command (only a bold toggle), and a bold toggle cannot make a heading
+  // non-bold - so wrap the selection and clear any weight it already carries.
+  const applyWeight = (weight: string) => {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
+    const range = sel.getRangeAt(0);
+    const frag = range.extractContents();
+    frag.querySelectorAll('[style*="font-weight"]').forEach((el) => {
+      (el as HTMLElement).style.removeProperty('font-weight');
+    });
+    // <b>/<strong> carry weight structurally, so swap them for plain spans.
+    frag.querySelectorAll('b, strong').forEach((el) => {
+      const span = document.createElement('span');
+      while (el.firstChild) span.appendChild(el.firstChild);
+      el.replaceWith(span);
+    });
+    const wrapper = document.createElement('span');
+    wrapper.style.fontWeight = weight;
+    wrapper.appendChild(frag);
+    // A heading's own default weight beats an ancestor span, so the weight has
+    // to be stamped on each heading too - otherwise "Normal" looks applied in
+    // the editor but the email still renders the <h2> bold.
+    wrapper.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach((el) => {
+      (el as HTMLElement).style.fontWeight = weight;
+    });
+    range.insertNode(wrapper);
+    sel.removeAllRanges();
+    if (ref.current) {
+      // Selecting whole blocks leaves empty shells behind after extraction.
+      ref.current.querySelectorAll('h1, h2, h3, h4, h5, h6, p, div, li').forEach((el) => {
+        if (!el.textContent?.trim() && !el.querySelector('img, br, hr')) el.remove();
+      });
+      onChange(ref.current.innerHTML);
+    }
+  };
+
   // Apply the font as an inline `font-family` style (not a legacy <font face>)
   // so the whole fallback stack survives into the sent email.
   const execFont = (stack: string) => {
@@ -347,6 +398,20 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
           {FONT_FAMILIES.map((f) => (
             <option key={f.label} value={f.stack} style={{ fontFamily: f.stack }}>{f.label}</option>
           ))}
+        </select>
+        {sep}
+        {/* Explicit weight - lets the user force text back to normal */}
+        <select
+          onChange={(e) => { if (e.target.value) applyWeight(e.target.value); e.target.value = ''; }}
+          defaultValue=""
+          className="rounded px-1 py-1 text-xs font-medium text-gray-600 bg-transparent hover:bg-gray-200 transition-colors border-none outline-none cursor-pointer"
+          title="Text Weight"
+        >
+          <option value="" disabled>Weight</option>
+          <option value="400">Normal</option>
+          <option value="500">Medium</option>
+          <option value="600">Semi Bold</option>
+          <option value="700">Bold</option>
         </select>
         {sep}
         {/* Font size */}
