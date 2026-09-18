@@ -32,6 +32,11 @@ interface CampaignData {
   scheduledAt: string;
   dailyLimit: number;
   delaySeconds: number;
+  autoSend: boolean;
+  windowStart: number;
+  windowEnd: number;
+  timezone: string;
+  skipWeekends: boolean;
   aiPersonalize: boolean;
   followUpEnabled: boolean;
   followUpDays: number;
@@ -56,6 +61,11 @@ const defaultForm: CampaignData = {
   scheduledAt: '',
   dailyLimit: 1000,
   delaySeconds: 30,
+  autoSend: false,
+  windowStart: 9,
+  windowEnd: 18,
+  timezone: 'Asia/Dubai',
+  skipWeekends: true,
   aiPersonalize: false,
   followUpEnabled: false,
   followUpDays: 3,
@@ -131,6 +141,11 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
             scheduledAt: data.scheduledAt ? new Date(data.scheduledAt).toISOString().slice(0, 16) : '',
             dailyLimit: data.dailyLimit ?? 300,
             delaySeconds: data.delaySeconds ?? 30,
+            autoSend: data.autoSend ?? false,
+            windowStart: data.windowStart ?? 9,
+            windowEnd: data.windowEnd ?? 18,
+            timezone: data.timezone || 'Asia/Dubai',
+            skipWeekends: data.skipWeekends ?? true,
             aiPersonalize: data.aiPersonalize ?? false,
             followUpEnabled: data.followUpEnabled ?? false,
             followUpDays: data.followUpDays ?? 3,
@@ -468,6 +483,98 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
                 className={inputClass('delaySeconds')}
               />
             </div>
+          </div>
+
+          {/* Automatic sending window */}
+          <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-700">Automatic Sending</p>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  Send on its own during working hours, one email every {form.delaySeconds} seconds
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleChange('autoSend', !form.autoSend)}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${form.autoSend ? 'bg-blue-500' : 'bg-gray-200'}`}
+                role="switch"
+                aria-checked={form.autoSend}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${form.autoSend ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            </div>
+
+            {form.autoSend && (
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Hour</label>
+                    <select
+                      value={form.windowStart}
+                      onChange={(e) => handleChange('windowStart', parseInt(e.target.value))}
+                      className={inputClass('windowStart')}
+                    >
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Hour</label>
+                    <select
+                      value={form.windowEnd}
+                      onChange={(e) => handleChange('windowEnd', parseInt(e.target.value))}
+                      className={inputClass('windowEnd')}
+                    >
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Timezone</label>
+                    <select
+                      value={form.timezone}
+                      onChange={(e) => handleChange('timezone', e.target.value)}
+                      className={inputClass('timezone')}
+                    >
+                      <option value="Asia/Dubai">Dubai (UAE)</option>
+                      <option value="Asia/Kolkata">India</option>
+                      <option value="Europe/London">London</option>
+                      <option value="America/New_York">New York</option>
+                      <option value="Asia/Singapore">Singapore</option>
+                      <option value="UTC">UTC</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Skip Weekends</p>
+                    <p className="text-xs text-gray-400 mt-0.5">Pause on Saturday and Sunday</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleChange('skipWeekends', !form.skipWeekends)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${form.skipWeekends ? 'bg-blue-500' : 'bg-gray-200'}`}
+                    role="switch"
+                    aria-checked={form.skipWeekends}
+                  >
+                    <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow-sm transition-transform duration-200 ${form.skipWeekends ? 'translate-x-5' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+
+                <p className="text-xs text-gray-500 bg-white rounded border border-gray-200 px-3 py-2">
+                  At one email every {form.delaySeconds}s between {String(form.windowStart).padStart(2, '0')}:00 and{' '}
+                  {String(form.windowEnd).padStart(2, '0')}:00 that is up to{' '}
+                  <strong>
+                    {Math.max(0, Math.floor(((form.windowEnd - form.windowStart) * 3600) / Math.max(form.delaySeconds, 1)))}
+                  </strong>{' '}
+                  emails a day, capped by your Daily Limit of <strong>{form.dailyLimit}</strong>.
+                </p>
+              </>
+            )}
           </div>
 
           {/* AI Personalization */}

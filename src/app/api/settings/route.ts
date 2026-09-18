@@ -20,6 +20,7 @@ const KEY_MAP: Record<string, string> = {
   twilioAuthToken: 'twilio_auth_token',
   twilioWhatsappFrom: 'twilio_whatsapp_from',
   twilioContentSid: 'twilio_content_sid',
+  cronSecret: 'cron_secret',
 }
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(

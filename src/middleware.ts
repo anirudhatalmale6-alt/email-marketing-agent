@@ -16,6 +16,9 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/api/tracking/') ||
     pathname === '/api/calls/webhook' ||
     pathname === '/api/whatsapp/webhook' ||
+    // Hit by an external scheduler, not a logged-in browser. It guards itself
+    // with the cron secret.
+    pathname === '/api/cron/send' ||
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/favicon') ||
     pathname.endsWith('.ico') ||

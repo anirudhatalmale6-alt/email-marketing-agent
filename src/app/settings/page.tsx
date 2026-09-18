@@ -30,6 +30,7 @@ interface AppSettings {
   sendingMethod: string;
   baseUrl: string;
   dailySendLimit: number;
+  cronSecret: string;
   whatsappSessionUrl: string;
   whatsappTemplateUrl: string;
   whatsappProvider: string;
@@ -60,6 +61,7 @@ export default function SettingsPage() {
     sendingMethod: 'gmass',
     baseUrl: '',
     dailySendLimit: 300,
+    cronSecret: '',
     whatsappSessionUrl: '',
     whatsappTemplateUrl: '',
     whatsappProvider: 'twilio',
@@ -112,6 +114,7 @@ export default function SettingsPage() {
         sendingMethod: json.sendingMethod || 'gmass',
         baseUrl: json.baseUrl || (typeof window !== 'undefined' ? window.location.origin : ''),
         dailySendLimit: json.dailySendLimit || 300,
+        cronSecret: json.cronSecret || '',
         whatsappSessionUrl: json.whatsappSessionUrl || '',
         whatsappTemplateUrl: json.whatsappTemplateUrl || '',
         whatsappProvider: json.whatsappProvider || 'twilio',
@@ -671,6 +674,28 @@ export default function SettingsPage() {
               className="w-48 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
             <p className="mt-1 text-xs text-gray-400">Maximum emails sent per day across all campaigns</p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Automatic Sending Key</label>
+            <input
+              type="password"
+              value={settings.cronSecret}
+              onChange={(e) => setSettings({ ...settings, cronSecret: e.target.value })}
+              placeholder="Make up a long password, e.g. dbs-auto-2026-x7k9"
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Needed for campaigns set to send automatically. Invent any long phrase and save it, then use the
+              address below in your scheduler. Until this is set, automatic sending stays switched off.
+            </p>
+            <div className="mt-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2 text-xs text-green-800">
+              <p className="font-medium mb-1">Scheduler address (call this every minute):</p>
+              <span className="font-mono break-all">
+                {(settings.baseUrl || (typeof window !== 'undefined' ? window.location.origin : '')).replace(/\/$/, '')}
+                /api/cron/send?key=YOUR_KEY
+              </span>
+            </div>
           </div>
         </div>
 

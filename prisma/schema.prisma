@@ -106,6 +106,12 @@ model Campaign {
   completedAt   DateTime?
   dailyLimit    Int       @default(300)
   delaySeconds  Int       @default(30)
+  autoSend      Boolean   @default(false)
+  windowStart   Int       @default(9)
+  windowEnd     Int       @default(18)
+  timezone      String    @default("Asia/Dubai")
+  skipWeekends  Boolean   @default(true)
+  lastAutoRunAt DateTime?
   aiPersonalize Boolean   @default(false)
   followUpEnabled Boolean @default(false)
   followUpDays    Int     @default(3)
