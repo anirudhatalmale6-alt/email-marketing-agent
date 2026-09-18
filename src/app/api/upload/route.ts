@@ -15,8 +15,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid file type. Use JPG, PNG, GIF, or WebP.' }, { status: 400 })
     }
 
-    if (file.size > 2 * 1024 * 1024) {
-      return NextResponse.json({ error: 'File too large. Max 2MB for email images.' }, { status: 400 })
+    // The editor shrinks large images in the browser before they get here, so
+    // this is just a backstop. Kept under Vercel's ~4.5MB request body limit.
+    if (file.size > 4 * 1024 * 1024) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1)
+      return NextResponse.json(
+        { error: `Image is ${mb}MB - too large. Please use an image under 4MB.` },
+        { status: 400 }
+      )
     }
 
     const bytes = await file.arrayBuffer()

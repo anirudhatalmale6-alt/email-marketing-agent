@@ -32,7 +32,7 @@ const uid = () => `blk-${++_bc}-${Math.random().toString(36).slice(2, 6)}`;
 
 const BLOCK_DEFAULTS: Record<BlockType, () => Record<string, any>> = {
   logo: () => ({ imageUrl: '', width: 180, alignment: 'center', linkUrl: '', bgColor: '#ffffff', padding: 20 }),
-  header: () => ({ title: 'Your Company', subtitle: '', bgColor: '#3b82f6', textColor: '#ffffff', subtitleColor: '#bfdbfe', padding: 32 }),
+  header: () => ({ title: 'Your Company', subtitle: '', logoUrl: '', logoWidth: 140, alignment: 'center', bgColor: '#3b82f6', textColor: '#ffffff', subtitleColor: '#bfdbfe', padding: 32 }),
   text: () => ({ html: '<p style="color:#475569;margin:0;font-size:15px;line-height:1.6">Enter your text here. Use the toolbar to make it <b>bold</b>, <i>italic</i>, or add links.</p>', padding: 24 }),
   image: () => ({ imageUrl: '', altText: '', width: '100%', alignment: 'center', linkUrl: '', borderRadius: 0, padding: 16 }),
   button: () => ({ text: 'Click Here', url: '#', bgColor: '#3b82f6', textColor: '#ffffff', borderRadius: 8, alignment: 'center', padding: 16, fontSize: 15 }),
@@ -60,7 +60,10 @@ const BLOCK_PROPS: Record<BlockType, PropDef[]> = {
   ],
   header: [
     { key: 'title', label: 'Title', type: 'text', placeholder: 'Company Name or Headline' },
-    { key: 'subtitle', label: 'Subtitle', type: 'text', placeholder: 'Optional tagline' },
+    { key: 'subtitle', label: 'Subtitle', type: 'textarea', placeholder: 'Optional tagline' },
+    { key: 'alignment', label: 'Title Position', type: 'select', options: [{ value: 'left', label: 'Left' }, { value: 'center', label: 'Center' }, { value: 'right', label: 'Right' }] },
+    { key: 'logoUrl', label: 'Logo Image URL', type: 'url', placeholder: 'https://your-logo.png' },
+    { key: 'logoWidth', label: 'Logo Width (px)', type: 'range', min: 40, max: 320, step: 10 },
     { key: 'bgColor', label: 'Background', type: 'color' },
     { key: 'textColor', label: 'Title Color', type: 'color' },
     { key: 'subtitleColor', label: 'Subtitle Color', type: 'color' },
@@ -139,6 +142,12 @@ function esc(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Same as esc(), but keeps the line breaks the user typed in a textarea.
+// Without this every description collapses into one run-on paragraph.
+function escLines(s: string): string {
+  return esc(s).replace(/\r\n|\r|\n/g, '<br>');
+}
+
 function renderBlockHtml(block: EditorBlock): string {
   const d = block.data;
   switch (block.type) {
@@ -149,8 +158,13 @@ function renderBlockHtml(block: EditorBlock): string {
       const inner = d.linkUrl ? `<a href="${esc(d.linkUrl)}" style="text-decoration:none">${img}</a>` : img;
       return `<div style="padding:${d.padding}px 24px;text-align:${d.alignment};background-color:${d.bgColor};overflow:hidden">${inner}</div>`;
     }
-    case 'header':
-      return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:center;border-radius:8px 8px 0 0;overflow:hidden"><h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700;word-wrap:break-word;overflow-wrap:break-word">${esc(d.title)}</h1>${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px;word-wrap:break-word;overflow-wrap:break-word">${esc(d.subtitle)}</p>` : ''}</div>`;
+    case 'header': {
+      const align = d.alignment || 'center';
+      const logo = d.logoUrl
+        ? `<img src="${esc(d.logoUrl)}" alt="${esc(d.title || 'Logo')}" width="${d.logoWidth || 140}" style="width:${d.logoWidth || 140}px;max-width:100%;height:auto;display:inline-block;border:0;margin:0 0 12px">`
+        : '';
+      return `<div style="background-color:${d.bgColor};padding:${d.padding}px 24px;text-align:${align};border-radius:8px 8px 0 0;overflow:hidden">${logo}${d.title ? `<h1 style="color:${d.textColor};margin:0;font-size:28px;font-weight:700;word-wrap:break-word;overflow-wrap:break-word">${esc(d.title)}</h1>` : ''}${d.subtitle ? `<p style="color:${d.subtitleColor};margin:8px 0 0;font-size:14px;word-wrap:break-word;overflow-wrap:break-word">${escLines(d.subtitle)}</p>` : ''}</div>`;
+    }
     case 'text':
       return `<div style="padding:${d.padding}px 24px;overflow:hidden;word-wrap:break-word;overflow-wrap:break-word">${d.html}</div>`;
     case 'image': {
@@ -168,7 +182,7 @@ function renderBlockHtml(block: EditorBlock): string {
         : `<div style="background:#e2e8f0;border-radius:8px;height:160px;display:flex;align-items:center;justify-content:center"><span style="color:#94a3b8;font-size:13px">[ Image ]</span></div>`;
       const pad = d.imagePosition === 'right' ? 'left' : 'right';
       const imgTd = `<td width="${d.imageWidth}" style="vertical-align:top;padding-${pad}:16px">${imgSrc}</td>`;
-      const textTd = `<td style="vertical-align:top"><h3 style="color:#1e293b;margin:0 0 8px;font-size:18px">${esc(d.title)}</h3><p style="color:#475569;margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word">${esc(d.description)}</p></td>`;
+      const textTd = `<td style="vertical-align:top"><h3 style="color:#1e293b;margin:0 0 8px;font-size:18px">${esc(d.title)}</h3><p style="color:#475569;margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word">${escLines(d.description)}</p></td>`;
       const cells = d.imagePosition === 'right' ? textTd + imgTd : imgTd + textTd;
       return `<div style="padding:${d.padding}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed"><tr>${cells}</tr></table></div>`;
     }
@@ -176,13 +190,13 @@ function renderBlockHtml(block: EditorBlock): string {
       const boxStyle = (bg: string) => `background-color:${bg};border-radius:${d.borderRadius}px;padding:${d.padding}px;border-left:4px solid ${d.borderColor};height:100%`;
       const titleStyle = `color:${d.titleColor};margin:0 0 8px;font-size:16px;font-weight:700`;
       const descStyle = `color:${d.textColor};margin:0;font-size:14px;line-height:1.5;word-wrap:break-word;overflow-wrap:break-word`;
-      const box1 = `<div style="${boxStyle(d.bgColor1 || '#f0fdf4')}"><h3 style="${titleStyle}">${esc(d.title1 || '')}</h3><p style="${descStyle}">${esc(d.desc1 || '')}</p></div>`;
+      const box1 = `<div style="${boxStyle(d.bgColor1 || '#f0fdf4')}"><h3 style="${titleStyle}">${esc(d.title1 || '')}</h3><p style="${descStyle}">${escLines(d.desc1 || '')}</p></div>`;
       if (d.layout === '1col') {
         return `<div style="padding:${d.margin}px 24px">${box1}</div>`;
       }
-      const box2 = `<div style="${boxStyle(d.bgColor2 || '#eff6ff')}"><h3 style="${titleStyle}">${esc(d.title2 || '')}</h3><p style="${descStyle}">${esc(d.desc2 || '')}</p></div>`;
+      const box2 = `<div style="${boxStyle(d.bgColor2 || '#eff6ff')}"><h3 style="${titleStyle}">${esc(d.title2 || '')}</h3><p style="${descStyle}">${escLines(d.desc2 || '')}</p></div>`;
       if (d.layout === '3col') {
-        const box3 = `<div style="${boxStyle(d.bgColor3 || '#fef3c7')}"><h3 style="${titleStyle}">${esc(d.title3 || '')}</h3><p style="${descStyle}">${esc(d.desc3 || '')}</p></div>`;
+        const box3 = `<div style="${boxStyle(d.bgColor3 || '#fef3c7')}"><h3 style="${titleStyle}">${esc(d.title3 || '')}</h3><p style="${descStyle}">${escLines(d.desc3 || '')}</p></div>`;
         return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-collapse:separate;border-spacing:8px 0"><tr><td width="33%" style="vertical-align:stretch">${box1}</td><td width="33%" style="vertical-align:stretch">${box2}</td><td width="33%" style="vertical-align:stretch">${box3}</td></tr></table></div>`;
       }
       return `<div style="padding:${d.margin}px 24px"><table width="100%" cellpadding="0" cellspacing="0" style="table-layout:fixed;border-collapse:separate;border-spacing:8px 0"><tr><td width="50%" style="vertical-align:stretch">${box1}</td><td width="50%" style="vertical-align:stretch">${box2}</td></tr></table></div>`;
@@ -219,6 +233,13 @@ const FONT_FAMILIES = [
   { label: 'Tahoma', stack: "Tahoma, Verdana, sans-serif" },
   { label: 'Trebuchet MS', stack: "'Trebuchet MS', Tahoma, sans-serif" },
   { label: 'Segoe UI', stack: "'Segoe UI', Arial, sans-serif" },
+  // Calibri ships with Microsoft Office, so it renders in Outlook/Windows and
+  // falls back cleanly elsewhere.
+  { label: 'Calibri', stack: "Calibri, 'Segoe UI', Candara, Arial, sans-serif" },
+  // Neo Sans is a licensed font that is not installed on recipients' machines
+  // and email clients strip webfonts - this will fall back to Arial for almost
+  // everyone. Offered because it costs nothing where the font IS installed.
+  { label: 'Neo Sans', stack: "'Neo Sans', 'Neo Sans Pro', 'Segoe UI', Arial, sans-serif" },
   { label: 'Times New Roman', stack: "'Times New Roman', Times, serif" },
   { label: 'Georgia', stack: "Georgia, 'Times New Roman', serif" },
   { label: 'Garamond', stack: "Garamond, Georgia, serif" },
@@ -235,6 +256,50 @@ const FONT_SIZES = [
   { value: '6', label: '32px' },
   { value: '7', label: '48px' },
 ];
+
+// Big photos (phone camera shots are often 4000px / 8MB) used to be rejected by
+// the upload limit. Shrink them in the browser first: emails never need more
+// than ~1400px wide, and a smaller file also loads faster in the inbox.
+const MAX_IMAGE_WIDTH = 1400;
+const COMPRESS_OVER_BYTES = 600 * 1024;
+
+function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    // Leave small files and formats we must not re-encode (GIF animation, SVG) alone.
+    if (file.size <= COMPRESS_OVER_BYTES && !file.type.includes('png')) return resolve(file);
+    if (file.type === 'image/gif' || file.type === 'image/svg+xml') return resolve(file);
+
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, MAX_IMAGE_WIDTH / img.width);
+      if (scale === 1 && file.size <= COMPRESS_OVER_BYTES) return resolve(file);
+
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(file);
+      // White backdrop so transparent PNGs don't turn black once flattened to JPEG.
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || blob.size >= file.size) return resolve(file);
+          const name = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+          resolve(new File([blob], name, { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        0.85
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
 
 function HtmlEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -369,6 +434,7 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
 
 function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (key: string, value: any) => void }) {
   const props = BLOCK_PROPS[block.type];
+  const [uploadState, setUploadState] = useState<{ busy: boolean; error: string }>({ busy: false, error: '' });
   if (!props) return null;
 
   const layout = block.data.layout;
@@ -419,27 +485,40 @@ function PropertiesPanel({ block, onChange }: { block: EditorBlock; onChange: (k
                   placeholder={p.placeholder}
                   className="flex-1 h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 min-w-0"
                 />
-                {p.key.toLowerCase().includes('image') && (
+                {/(image|logo)/.test(p.key.toLowerCase()) && (
                   <label className="flex-shrink-0 h-9 px-2.5 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 cursor-pointer flex items-center gap-1 text-xs font-medium text-gray-600 transition-colors" title="Upload image">
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
-                    Upload
-                    <input type="file" accept="image/*" className="hidden" onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      const fd = new FormData();
-                      fd.append('file', file);
+                    {uploadState.busy ? 'Uploading...' : 'Upload'}
+                    <input type="file" accept="image/*" className="hidden" disabled={uploadState.busy} onChange={async (e) => {
+                      const picked = e.target.files?.[0];
+                      if (!picked) return;
+                      setUploadState({ busy: true, error: '' });
                       try {
+                        const file = await compressImage(picked);
+                        const fd = new FormData();
+                        fd.append('file', file);
                         const res = await fetch('/api/upload', { method: 'POST', body: fd });
-                        const data = await res.json();
+                        const data = await res.json().catch(() => ({}));
                         if (res.ok && data.url) {
                           onChange(p.key, data.url);
+                          setUploadState({ busy: false, error: '' });
+                        } else {
+                          setUploadState({ busy: false, error: data.error || `Upload failed (${res.status})` });
                         }
-                      } catch { /* ignore */ }
+                      } catch {
+                        setUploadState({ busy: false, error: 'Upload failed - check your connection and try again.' });
+                      }
                       e.target.value = '';
                     }} />
                   </label>
                 )}
               </div>
+              {/(image|logo)/.test(p.key.toLowerCase()) && uploadState.error && (
+                <p className="mt-1 text-xs text-red-600">{uploadState.error}</p>
+              )}
+              {/(image|logo)/.test(p.key.toLowerCase()) && uploadState.busy && (
+                <p className="mt-1 text-xs text-gray-500">Resizing and uploading, one moment...</p>
+              )}
             </div>
           )}
           {p.type === 'color' && (
@@ -750,6 +829,10 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
           <select value={fontFamily} onChange={(e) => setFontFamily(e.target.value)}
             className="h-9 rounded-lg border border-gray-200 px-3 text-sm text-gray-700 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100" title="Email font">
             <option value="Arial, Helvetica, sans-serif">Arial</option>
+            <option value="Calibri, 'Segoe UI', Candara, Arial, sans-serif">Calibri</option>
+            <option value="'Neo Sans', 'Neo Sans Pro', 'Segoe UI', Arial, sans-serif">Neo Sans</option>
+            <option value="'Segoe UI', Arial, sans-serif">Segoe UI</option>
+            <option value="Garamond, Georgia, serif">Garamond</option>
             <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica</option>
             <option value="Georgia, 'Times New Roman', Times, serif">Georgia</option>
             <option value="'Times New Roman', Times, serif">Times New Roman</option>
