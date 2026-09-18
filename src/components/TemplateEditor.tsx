@@ -210,6 +210,22 @@ function renderBlockHtml(block: EditorBlock): string {
   }
 }
 
+// Email-safe font stacks. Every option falls back to a websafe family so the
+// text still renders correctly in Outlook / Gmail if the first font is missing.
+const FONT_FAMILIES = [
+  { label: 'Arial', stack: "Arial, Helvetica, sans-serif" },
+  { label: 'Helvetica', stack: "Helvetica, Arial, sans-serif" },
+  { label: 'Verdana', stack: "Verdana, Geneva, sans-serif" },
+  { label: 'Tahoma', stack: "Tahoma, Verdana, sans-serif" },
+  { label: 'Trebuchet MS', stack: "'Trebuchet MS', Tahoma, sans-serif" },
+  { label: 'Segoe UI', stack: "'Segoe UI', Arial, sans-serif" },
+  { label: 'Times New Roman', stack: "'Times New Roman', Times, serif" },
+  { label: 'Georgia', stack: "Georgia, 'Times New Roman', serif" },
+  { label: 'Garamond', stack: "Garamond, Georgia, serif" },
+  { label: 'Courier New', stack: "'Courier New', Courier, monospace" },
+  { label: 'Lucida Sans', stack: "'Lucida Sans Unicode', 'Lucida Grande', sans-serif" },
+];
+
 const FONT_SIZES = [
   { value: '1', label: '10px' },
   { value: '2', label: '13px' },
@@ -234,6 +250,15 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
     if (ref.current) onChange(ref.current.innerHTML);
   };
 
+  // Apply the font as an inline `font-family` style (not a legacy <font face>)
+  // so the whole fallback stack survives into the sent email.
+  const execFont = (stack: string) => {
+    document.execCommand('styleWithCSS', false, 'true');
+    document.execCommand('fontName', false, stack);
+    document.execCommand('styleWithCSS', false, 'false');
+    if (ref.current) onChange(ref.current.innerHTML);
+  };
+
   const btnClass = 'rounded px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-200 transition-colors';
   const sep = <span className="w-px bg-gray-200 mx-0.5" />;
 
@@ -245,6 +270,19 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
         <button type="button" onClick={() => exec('italic')} className={btnClass} title="Italic"><i>I</i></button>
         <button type="button" onClick={() => exec('underline')} className={btnClass} title="Underline"><u>U</u></button>
         <button type="button" onClick={() => exec('strikeThrough')} className={btnClass} title="Strikethrough"><s>S</s></button>
+        {sep}
+        {/* Font family */}
+        <select
+          onChange={(e) => { if (e.target.value) execFont(e.target.value); e.target.value = ''; }}
+          defaultValue=""
+          className="rounded px-1 py-1 text-xs font-medium text-gray-600 bg-transparent hover:bg-gray-200 transition-colors border-none outline-none cursor-pointer max-w-[110px]"
+          title="Font Type"
+        >
+          <option value="" disabled>Font</option>
+          {FONT_FAMILIES.map((f) => (
+            <option key={f.label} value={f.stack} style={{ fontFamily: f.stack }}>{f.label}</option>
+          ))}
+        </select>
         {sep}
         {/* Font size */}
         <select
@@ -286,6 +324,9 @@ function HtmlEditor({ value, onChange }: { value: string; onChange: (html: strin
         </button>
         <button type="button" onClick={() => exec('justifyRight')} className={btnClass} title="Align Right">
           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M9 12h12M5 18h16"/></svg>
+        </button>
+        <button type="button" onClick={() => exec('justifyFull')} className={btnClass} title="Justify">
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
         {sep}
         {/* Lists */}
@@ -515,6 +556,13 @@ export default function TemplateEditor({ templateId, onSaved, onCancel }: Templa
         // plain template keeps its plain (no-background) look.
         if (typeof data.htmlContent === 'string' && data.htmlContent.includes('data-layout="plain"')) {
           setLayoutStyle('plain');
+        }
+        // Restore the email font from the saved <body>, otherwise re-opening a
+        // template and saving it would silently reset the font back to Arial.
+        if (typeof data.htmlContent === 'string') {
+          const bodyTag = data.htmlContent.match(new RegExp('<body[^>]*>', 'i'));
+          const font = bodyTag && bodyTag[0].match(new RegExp('font-family:([^";]*)', 'i'));
+          if (font && font[1].trim()) setFontFamily(font[1].trim());
         }
         if (data.jsonLayout) {
           try {
