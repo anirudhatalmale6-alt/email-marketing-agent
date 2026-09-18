@@ -565,6 +565,12 @@ export default function CampaignForm({ campaignId, onSaved, onCancel }: Campaign
                   </button>
                 </div>
 
+                <p className="text-xs text-amber-800 bg-amber-50 rounded border border-amber-200 px-3 py-2">
+                  Needs Sending Method set to <strong>SMTP</strong> in Settings. GMass sends the whole list in one
+                  go on its own schedule, so it cannot be paced at a fixed gap - automatic sending is skipped
+                  while GMass is selected.
+                </p>
+
                 <p className="text-xs text-gray-500 bg-white rounded border border-gray-200 px-3 py-2">
                   At one email every {form.delaySeconds}s between {String(form.windowStart).padStart(2, '0')}:00 and{' '}
                   {String(form.windowEnd).padStart(2, '0')}:00 that is up to{' '}

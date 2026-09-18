@@ -84,6 +84,18 @@ export async function runAutoCampaign(campaignId: string): Promise<AutoRunResult
   if (campaign.status === 'paused') return { ...base, skipped: 'Paused' }
   if (campaign.status === 'completed') return { ...base, skipped: 'Already completed' }
 
+  // GMass hands the whole list to an external service in one blast and does its
+  // own scheduling, so a 30-second drip is not something we can drive. Refuse
+  // rather than quietly sending over SMTP instead - that would use the wrong
+  // sender and could re-send leads GMass has already picked up.
+  const sendingMethod = (await getSetting('sending_method')) || 'smtp'
+  if (sendingMethod === 'gmass') {
+    return {
+      ...base,
+      skipped: 'Sending Method is set to GMass. Automatic timed sending needs SMTP - switch it in Settings.',
+    }
+  }
+
   const window = isWithinWindow(
     campaign.timezone,
     campaign.windowStart,
